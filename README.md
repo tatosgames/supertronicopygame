@@ -78,8 +78,18 @@ sudo bash scripts/install-gpio-tft-service.sh
 ```
 
 Run it with `sudo`. Without it, the service install and `systemctl` steps can fail.
+The installer also removes the previous broken `retro-tron-gpio.service` before writing the new one.
 
-If you already installed an older version and see `status=216/GROUP`, reinstall the service with the command above so it uses your real primary group.
+If you already installed an older version and see `status=216/GROUP`, remove the old unit and reinstall it:
+
+```bash
+sudo systemctl stop retro-tron-gpio.service
+sudo systemctl disable retro-tron-gpio.service
+sudo rm -f /etc/systemd/system/retro-tron-gpio.service
+sudo systemctl daemon-reload
+cd ~/supertronicopygame
+sudo bash scripts/install-gpio-tft-service.sh
+```
 
 Enable boot to GUI:
 
