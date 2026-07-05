@@ -156,6 +156,14 @@ cd ~/supertronicopygame
 bash scripts/boot-check.sh --full
 ```
 
+The short report focuses on the main bottlenecks:
+- boot timing
+- top boot delays
+- Plymouth
+- NetworkManager wait-online
+- display/session startup
+- TFT/driver lines
+
 ## Alternate HDMI Path
 
 If you want to run this on an HDMI monitor instead of the GPIO TFT, use:

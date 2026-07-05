@@ -30,24 +30,28 @@ run_cmd() {
 
 run_cmd "Boot timing" systemd-analyze time
 
-echo "== Top boot delays =="
-systemd-analyze blame | head -20
+echo "== Short boot hotspots =="
+systemd-analyze blame | head -20 | awk '
+  /plymouth-quit-wait\.service|NetworkManager-wait-online\.service|ModemManager\.service|display-manager\.service|user@[0-9]+\.service|accounts-daemon\.service|polkit\.service/ {
+    print
+  }
+'
 echo
 
-echo "== Critical chain =="
-systemd-analyze critical-chain
+echo "== Plymouth =="
+journalctl -b | grep -i plymouth | tail -20 || true
 echo
 
-echo "== Plymouth logs =="
-journalctl -b | grep -i plymouth || true
+echo "== Network wait =="
+journalctl -b | grep -iE "NetworkManager-wait-online|NetworkManager" | tail -20 || true
 echo
 
-echo "== Graphic session logs =="
-journalctl -b | grep -iE "display-manager|x11|xorg|wayland|lightdm|lxsession" || true
+echo "== Display/session =="
+journalctl -b | grep -iE "display-manager|x11|xorg|wayland|lightdm|lxsession" | tail -30 || true
 echo
 
-echo "== Display/driver logs =="
-journalctl -b | grep -iE "spi|fb|drm|xpt|tft|lcd|ili" || true
+echo "== Driver/TFT =="
+journalctl -b | grep -iE "spi|fb|drm|xpt|tft|lcd|ili" | tail -30 || true
 echo
 
 if [[ "$FULL" -eq 1 ]]; then
@@ -61,11 +65,24 @@ if [[ "$FULL" -eq 1 ]]; then
 fi
 
 echo "== Quick hints =="
+if systemd-analyze blame | head -20 | grep -qi "NetworkManager-wait-online.service"; then
+  echo "- NetworkManager wait-online is in the top boot delays."
+fi
 if journalctl -b | grep -qi "plymouth-quit-wait.service"; then
   echo "- plymouth-quit-wait.service appears in the boot path."
+fi
+if journalctl -b | grep -qi "display-manager.service"; then
+  echo "- display-manager.service is part of the startup chain."
 fi
 if grep -qE 'quiet[[:space:]]+splash' /boot/firmware/cmdline.txt 2>/dev/null || grep -qE 'quiet[[:space:]]+splash' /boot/cmdline.txt 2>/dev/null; then
   echo "- cmdline.txt contains 'quiet splash'. Removing it will make boot logs visible."
 fi
+if systemctl is-enabled NetworkManager-wait-online.service >/dev/null 2>&1; then
+  echo "- Consider: sudo systemctl disable --now NetworkManager-wait-online.service"
+fi
+if systemctl is-enabled ModemManager.service >/dev/null 2>&1; then
+  echo "- Consider: sudo systemctl disable --now ModemManager.service"
+fi
+echo "- If you want less splash delay, remove 'quiet splash' from cmdline.txt."
 echo
 echo "Done."
