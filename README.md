@@ -134,6 +134,28 @@ cd ~/supertronicopygame
 git pull --ff-only origin main
 ```
 
+## Boot Check
+
+Run this when boot feels slow or Plymouth hangs too long:
+
+```bash
+cd ~/supertronicopygame
+bash scripts/boot-check.sh
+```
+
+It prints a short report and saves the full output to:
+
+```bash
+~/retro-tron-boot-check.log
+```
+
+If you want the long version:
+
+```bash
+cd ~/supertronicopygame
+bash scripts/boot-check.sh --full
+```
+
 ## Alternate HDMI Path
 
 If you want to run this on an HDMI monitor instead of the GPIO TFT, use:
