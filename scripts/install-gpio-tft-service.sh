@@ -3,6 +3,7 @@ set -euo pipefail
 
 TARGET_USER="${SUDO_USER:-${USER:-pi}}"
 TARGET_HOME="$(getent passwd "$TARGET_USER" | cut -d: -f6)"
+TARGET_GROUP="$(id -gn "$TARGET_USER")"
 
 if [[ -z "$TARGET_HOME" ]]; then
   echo "Could not resolve home directory for user: $TARGET_USER"
@@ -12,6 +13,7 @@ fi
 SERVICE_PATH="/etc/systemd/system/retro-tron-gpio.service"
 
 echo "Installing retro-tron-gpio.service for user: $TARGET_USER"
+echo "Using primary group: $TARGET_GROUP"
 echo "Home directory: $TARGET_HOME"
 
 sudo tee "$SERVICE_PATH" >/dev/null <<EOF
@@ -23,7 +25,7 @@ Wants=graphical.target
 [Service]
 Type=simple
 User=$TARGET_USER
-Group=$TARGET_USER
+Group=$TARGET_GROUP
 SupplementaryGroups=video,input,render
 WorkingDirectory=$TARGET_HOME/supertronicopygame
 Environment=SDL_VIDEODRIVER=x11

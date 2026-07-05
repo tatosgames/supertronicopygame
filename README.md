@@ -79,6 +79,8 @@ sudo bash scripts/install-gpio-tft-service.sh
 
 Run it with `sudo`. Without it, the service install and `systemctl` steps can fail.
 
+If you already installed an older version and see `status=216/GROUP`, reinstall the service with the command above so it uses your real primary group.
+
 Enable boot to GUI:
 
 ```bash
