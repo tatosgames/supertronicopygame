@@ -70,7 +70,7 @@ bash scripts/rpi.sh --no-update --kiosk
 
 ## 4. Auto-start on boot
 
-Install the system service:
+Install the user service:
 
 ```bash
 cd ~/supertronicopygame
@@ -78,47 +78,41 @@ sudo bash scripts/install-gpio-tft-service.sh
 ```
 
 Run it with `sudo`. Without it, the service install and `systemctl` steps can fail.
-The installer also removes the previous broken `retro-tron-gpio.service` before writing the new one.
+The installer writes the service to `~/.config/systemd/user/retro-tron-gpio.service`, enables it, and turns on linger for the user so it can start at boot.
 
-If you already installed an older version and see `status=216/GROUP`, remove the old unit and reinstall it:
-
-```bash
-sudo systemctl stop retro-tron-gpio.service
-sudo systemctl disable retro-tron-gpio.service
-sudo rm -f /etc/systemd/system/retro-tron-gpio.service
-sudo systemctl daemon-reload
-cd ~/supertronicopygame
-sudo bash scripts/install-gpio-tft-service.sh
-```
-
-Enable boot to GUI:
+Check status:
 
 ```bash
-sudo systemctl set-default graphical.target
-```
-
-Reboot:
-
-```bash
-sudo reboot
+systemctl --user status retro-tron-gpio.service --no-pager
 ```
 
 Check logs:
 
 ```bash
-journalctl -u retro-tron-gpio.service -f
+journalctl --user -u retro-tron-gpio.service -f
 ```
 
 Stop it:
 
 ```bash
-sudo systemctl stop retro-tron-gpio.service
+systemctl --user stop retro-tron-gpio.service
 ```
 
 Disable it:
 
 ```bash
-sudo systemctl disable retro-tron-gpio.service
+systemctl --user disable retro-tron-gpio.service
+```
+
+If you ever need to reinstall from scratch:
+
+```bash
+systemctl --user stop retro-tron-gpio.service
+systemctl --user disable retro-tron-gpio.service
+rm -f ~/.config/systemd/user/retro-tron-gpio.service
+systemctl --user daemon-reload
+cd ~/supertronicopygame
+sudo bash scripts/install-gpio-tft-service.sh
 ```
 
 ## 5. If you already cloned before and want the latest code

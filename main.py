@@ -630,11 +630,11 @@ class App:
     def __init__(self, config: Config) -> None:
         self.config = config
         pygame.init()
-        pygame.mouse.set_visible(False)
         pygame.display.set_caption("Retro Tron Wireframe Visualizer")
         flags = pygame.FULLSCREEN if config.fullscreen else 0
         window_size = (config.width * config.scale, config.height * config.scale)
         self.window = pygame.display.set_mode(window_size, flags)
+        pygame.mouse.set_visible(False)
         self.surface = pygame.Surface((config.width, config.height)).convert()
         self.clock = pygame.time.Clock()
         self.font = pygame.font.Font(None, 16)
