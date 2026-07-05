@@ -6,7 +6,6 @@ ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 
 INSTALL=0
 RUN_APP=0
-KIOSK=0
 AUTO_UPDATE=1
 
 if [[ "${1:-}" == "--install" ]]; then
@@ -16,11 +15,6 @@ fi
 
 if [[ "${1:-}" == "--run-app" ]]; then
   RUN_APP=1
-  shift
-fi
-
-if [[ "${1:-}" == "--kiosk" ]]; then
-  KIOSK=1
   shift
 fi
 
@@ -71,24 +65,9 @@ maybe_update_repo() {
   fi
 }
 
-if [[ "$RUN_APP" -eq 1 || "$KIOSK" -eq 1 ]]; then
-  cd "$ROOT_DIR"
-  if [[ "$KIOSK" -eq 1 ]]; then
-    env SDL_VIDEODRIVER="${SDL_VIDEODRIVER:-x11}" SDL_AUDIODRIVER=dummy python3 main.py "${APP_ARGS[@]}" "$@"
-    app_status=$?
-    maybe_update_repo
-    exit "$app_status"
-  fi
-  python3 main.py "${APP_ARGS[@]}" "$@"
-  app_status=$?
-  if [[ "$RUN_APP" -eq 0 ]]; then
-    maybe_update_repo
-  fi
-  exit "$app_status"
-fi
+cd "$ROOT_DIR"
 
-if [[ -n "${DISPLAY:-}" || -n "${WAYLAND_DISPLAY:-}" ]]; then
-  cd "$ROOT_DIR"
+if [[ "$RUN_APP" -eq 1 || -n "${DISPLAY:-}" || -n "${WAYLAND_DISPLAY:-}" ]]; then
   python3 main.py "${APP_ARGS[@]}" "$@"
   app_status=$?
   maybe_update_repo
@@ -96,12 +75,11 @@ if [[ -n "${DISPLAY:-}" || -n "${WAYLAND_DISPLAY:-}" ]]; then
 fi
 
 if ! command -v startx >/dev/null 2>&1; then
-  echo "startx not found. Run: bash scripts/rpi.sh --install"
+  echo "startx not found. Run: bash scripts/hdmi.sh --install"
   exit 1
 fi
 
-cd "$ROOT_DIR"
-startx "$SCRIPT_DIR/rpi.sh" -- --run-app "$@"
+startx "$SCRIPT_DIR/hdmi.sh" -- --run-app "$@"
 app_status=$?
 maybe_update_repo
 exit "$app_status"
