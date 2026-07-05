@@ -1,91 +1,138 @@
 # Retro Tron Wireframe Visualizer
 
-A small Python/Pygame procedural visualizer for Raspberry Pi 3 Model B and Windows development. It renders a low-resolution neon vector world with an infinite forward-scrolling grid, layered procedural mountains, a sparse clean masked skyline, segmented suns/moons, a small portal accent, starfields, data-rain, flying wireframe drones, scanlines, flicker, and fake glow.
+Procedural Python/Pygame visualizer for Raspberry Pi and desktop development. It renders a neon wireframe world with a forward-scrolling grid, mountains, skyline, sun/moon, portal accents, stars, data rain, drones, scanlines, flicker, and glow.
 
-The app runs automatically as soon as it starts. Keyboard controls are included for debugging and live tuning.
+The app starts immediately when launched. Keyboard controls are included for live tuning.
 
-## Run On Windows
+## Repository
 
-```powershell
-python -m venv venv
-venv\Scripts\activate
-pip install -r requirements.txt
-python main.py
-```
+Clone from:
 
-Useful launch options:
+[`https://github.com/tatosgames/supertronicopygame`](https://github.com/tatosgames/supertronicopygame)
 
-```powershell
-python main.py --width 480 --height 320
-python main.py --width 320 --height 240
-python main.py --width 320 --height 200
-python main.py --scale 2 --fps 30
-python main.py --fullscreen
-python main.py --no-auto
-python main.py --profile pi
-```
+## Raspberry Pi Install
 
-## Run On Raspberry Pi
+Use this on Raspberry Pi OS with a graphical desktop. If you are on `Lite`, install the desktop edition first.
 
-The Raspberry Pi OS package is usually enough and avoids building wheels on-device.
-These commands assume the project lives in `/home/pi/supertronicopygame`; adjust the path if you copy it somewhere else.
+### 1. Update and install dependencies
 
 ```bash
 sudo apt update
-sudo apt install -y python3-pygame git
-cd /home/pi/supertronicopygame
-python3 main.py --profile pi --width 480 --height 320 --scale 1
+sudo apt install -y git python3-pygame xinit xserver-xorg xserver-xorg-legacy x11-xserver-utils
 ```
 
-If you prefer a virtual environment and have a recent Python setup:
+If `python3-pygame` is not available on your image, use the virtual environment path instead:
 
 ```bash
-cd /home/pi/supertronicopygame
+sudo apt update
+sudo apt install -y git python3-venv
+```
+
+### 2. Clone the repo
+
+```bash
+cd ~
+git clone https://github.com/tatosgames/supertronicopygame.git
+cd supertronicopygame
+```
+
+If you want to use a virtual environment:
+
+```bash
 python3 -m venv venv
 . venv/bin/activate
 pip install -r requirements.txt
-python main.py --profile pi --width 480 --height 320 --scale 1
 ```
 
-For a small display or fullscreen launch:
+### 3. Start the visualizer
+
+Recommended Pi launch:
 
 ```bash
 python3 main.py --profile pi --width 480 --height 320 --scale 1
+```
+
+Fullscreen:
+
+```bash
 python3 main.py --profile pi --fullscreen --width 480 --height 320
+```
+
+Small displays:
+
+```bash
 python3 main.py --profile pi --width 320 --height 240 --scale 1
 python3 main.py --profile pi --width 320 --height 200 --scale 1
 ```
 
-## Raspberry Pi Autorun Fullscreen
+## One-Command Helper
 
-Use this when the Pi should boot directly into the visualizer. This setup is intended for Raspberry Pi OS with desktop/autologin enabled, because Pygame fullscreen needs an active display session.
+From the repo root:
 
-1. Enable desktop autologin:
+```bash
+bash scripts/rpi.sh --install
+```
+
+Then start it again without install:
+
+```bash
+bash scripts/rpi.sh
+```
+
+The helper installs the Pi desktop/X11 bits when requested. If you run it from a console without a GUI session, it starts `startx` automatically and launches the visualizer fullscreen.
+
+```bash
+bash scripts/rpi.sh --fullscreen
+```
+
+You can pass extra `main.py` arguments after that, for example:
+
+```bash
+bash scripts/rpi.sh --width 320 --height 240 --scale 1
+```
+
+## GUI On Raspberry Pi
+
+This app needs a graphical session. On Bookworm:
+
+- `Raspberry Pi OS Desktop` already includes the GUI
+- `Raspberry Pi OS Lite` does not include the GUI
+
+If you boot to CLI, use `raspi-config` to switch to desktop boot:
 
 ```bash
 sudo raspi-config
 ```
 
-Choose:
+Then choose:
 
 ```text
-System Options -> Boot / Auto Login -> Desktop Autologin
+System Options -> Boot -> Desktop
 ```
 
-Then reboot once:
+If `raspi-config` is missing:
 
 ```bash
-sudo reboot
+sudo apt update
+sudo apt install -y raspi-config
 ```
 
-2. Create a user systemd service:
+If you only want to launch the desktop for the current session and you already have the desktop packages installed, use:
+
+```bash
+sudo systemctl start display-manager
+```
+
+## Autostart On Raspberry Pi
+
+If you want the visualizer to boot automatically in fullscreen, keep the Pi on a desktop session with autologin and use a user service.
 
 ```bash
 mkdir -p ~/.config/systemd/user
 nano ~/.config/systemd/user/retro-tron.service
 ```
 
-Paste this service file:
+Paste this:
 
 ```ini
 [Unit]
@@ -94,8 +141,8 @@ After=graphical-session.target
 
 [Service]
 Type=simple
-WorkingDirectory=/home/pi/supertronicopygame
-ExecStart=/usr/bin/python3 /home/pi/supertronicopygame/main.py --profile pi --fullscreen --width 480 --height 320 --fps 30
+WorkingDirectory=%h/supertronicopygame
+ExecStart=/usr/bin/python3 %h/supertronicopygame/main.py --profile pi --fullscreen --width 480 --height 320 --fps 30
 Restart=always
 RestartSec=3
 Environment=PYTHONUNBUFFERED=1
@@ -104,7 +151,7 @@ Environment=PYTHONUNBUFFERED=1
 WantedBy=default.target
 ```
 
-Save and enable it:
+Enable it:
 
 ```bash
 systemctl --user daemon-reload
@@ -112,32 +159,13 @@ systemctl --user enable retro-tron.service
 systemctl --user start retro-tron.service
 ```
 
-Allow the user service to start at boot:
+Allow it to start at boot:
 
 ```bash
 sudo loginctl enable-linger pi
 ```
 
-Check status and logs:
-
-```bash
-systemctl --user status retro-tron.service
-journalctl --user -u retro-tron.service -f
-```
-
-Stop or disable autorun:
-
-```bash
-systemctl --user stop retro-tron.service
-systemctl --user disable retro-tron.service
-```
-
-If your display is `320x240` or `320x200`, change the `ExecStart` line to one of these:
-
-```ini
-ExecStart=/usr/bin/python3 /home/pi/supertronicopygame/main.py --profile pi --fullscreen --width 320 --height 240 --fps 30
-ExecStart=/usr/bin/python3 /home/pi/supertronicopygame/main.py --profile pi --fullscreen --width 320 --height 200 --fps 30
-```
+Replace `pi` with your actual username if needed.
 
 ## Controls
 
@@ -145,18 +173,15 @@ ExecStart=/usr/bin/python3 /home/pi/supertronicopygame/main.py --profile pi --fu
 - `F`: toggle FPS/debug text
 - `S`: toggle scanlines
 - `G`: toggle fake glow
-- `C`: smoothly morph to the next color palette
+- `C`: morph to the next color palette
 - `V`: toggle automatic scene/palette variation
 - `SPACE`: randomize terrain, city, and drones
 - `UP` / `DOWN`: change animation speed
-- `LEFT` / `RIGHT`: adjust horizon and perspective feel
+- `LEFT` / `RIGHT`: adjust horizon and perspective
 
 ## Notes
 
-- Internal rendering defaults to `480x320`, then scales with nearest-neighbor pixels.
-- The render size is parameterized; for a 480x320 Raspberry Pi display, use `--width 480 --height 320 --scale 1` or fullscreen with the same width/height.
-- All visuals are procedural; there are no image or audio assets.
-- Automatic variation is enabled by default: palettes smoothly morph and the procedural seed changes over time.
-- `--profile high` keeps the richest visuals, `--profile pi` is tuned for Raspberry Pi 3, and `--profile minimal` is a fallback for slow displays.
-- The renderer favors cheap `pygame.draw` primitives and cached procedural geometry for Raspberry Pi 3 performance.
-- Disable glow and scanlines with `G` and `S` if the target display or Pi setup needs extra headroom.
+- Default internal render size is `480x320`
+- Use `--profile pi` on Raspberry Pi 3 or similar hardware
+- Use `--profile minimal` only if the display is too slow
+- The visuals are procedural, so there are no image or audio assets
