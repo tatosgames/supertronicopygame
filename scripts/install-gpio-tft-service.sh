@@ -11,6 +11,9 @@ fi
 
 SERVICE_PATH="/etc/systemd/system/retro-tron-gpio.service"
 
+echo "Installing retro-tron-gpio.service for user: $TARGET_USER"
+echo "Home directory: $TARGET_HOME"
+
 sudo tee "$SERVICE_PATH" >/dev/null <<EOF
 [Unit]
 Description=Retro Tron Wireframe Visualizer (GPIO TFT)
@@ -34,9 +37,14 @@ RestartSec=3
 WantedBy=graphical.target
 EOF
 
+echo "Reloading systemd..."
 sudo systemctl daemon-reload
+echo "Enabling service..."
 sudo systemctl enable retro-tron-gpio.service
+echo "Starting service..."
 sudo systemctl restart retro-tron-gpio.service
 
 echo "Installed: $SERVICE_PATH"
 echo "Check logs with: journalctl -u retro-tron-gpio.service -f"
+echo "Current status:"
+sudo systemctl --no-pager --full status retro-tron-gpio.service

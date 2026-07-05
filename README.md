@@ -77,6 +77,8 @@ cd ~/supertronicopygame
 sudo bash scripts/install-gpio-tft-service.sh
 ```
 
+Run it with `sudo`. Without it, the service install and `systemctl` steps can fail.
+
 Enable boot to GUI:
 
 ```bash

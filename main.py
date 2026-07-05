@@ -630,6 +630,7 @@ class App:
     def __init__(self, config: Config) -> None:
         self.config = config
         pygame.init()
+        pygame.mouse.set_visible(False)
         pygame.display.set_caption("Retro Tron Wireframe Visualizer")
         flags = pygame.FULLSCREEN if config.fullscreen else 0
         window_size = (config.width * config.scale, config.height * config.scale)
