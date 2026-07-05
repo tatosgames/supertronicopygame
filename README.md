@@ -164,6 +164,27 @@ The short report focuses on the main bottlenecks:
 - display/session startup
 - TFT/driver lines
 
+## Boot Speedup
+
+Run this to remove the common boot delays:
+
+```bash
+cd ~/supertronicopygame
+sudo bash scripts/boot-speedup.sh
+```
+
+It will:
+- back up `cmdline.txt`
+- remove `quiet splash`
+- disable and mask `NetworkManager-wait-online.service`
+- mask Plymouth services if they exist
+
+After it finishes, reboot:
+
+```bash
+sudo reboot
+```
+
 ## Alternate HDMI Path
 
 If you want to run this on an HDMI monitor instead of the GPIO TFT, use:

@@ -83,6 +83,9 @@ fi
 if systemctl is-enabled ModemManager.service >/dev/null 2>&1; then
   echo "- Consider: sudo systemctl disable --now ModemManager.service"
 fi
+if systemctl is-enabled NetworkManager-wait-online.service >/dev/null 2>&1 || journalctl -b | grep -qi "plymouth-quit-wait.service"; then
+  echo "- Or run: bash scripts/boot-speedup.sh"
+fi
 echo "- If you want less splash delay, remove 'quiet splash' from cmdline.txt."
 echo
 echo "Done."
