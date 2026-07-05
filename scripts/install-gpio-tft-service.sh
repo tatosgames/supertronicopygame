@@ -2,11 +2,21 @@
 set -euo pipefail
 set -E
 
+DEBUG=0
+if [[ "${1:-}" == "--debug" ]]; then
+  DEBUG=1
+  shift
+fi
+
 TARGET_USER="${SUDO_USER:-${USER:-pi}}"
 TARGET_HOME="$(getent passwd "$TARGET_USER" | cut -d: -f6)"
 TARGET_UID="$(id -u "$TARGET_USER")"
 
 trap 'echo "Error on line $LINENO. Aborting." >&2' ERR
+
+if [[ "$DEBUG" -eq 1 ]]; then
+  set -x
+fi
 
 if [[ -z "$TARGET_HOME" ]]; then
   echo "Could not resolve home directory for user: $TARGET_USER"
@@ -18,7 +28,7 @@ SERVICE_PATH="$SERVICE_DIR/retro-tron-gpio.service"
 LOG_PATH="$TARGET_HOME/retro-tron-gpio-install.log"
 
 user_systemctl() {
-  sudo -u "$TARGET_USER" XDG_RUNTIME_DIR="/run/user/$TARGET_UID" systemctl --user "$@"
+  sudo -u "$TARGET_USER" env XDG_RUNTIME_DIR="/run/user/$TARGET_UID" systemctl --user "$@"
 }
 
 exec > >(tee "$LOG_PATH") 2>&1

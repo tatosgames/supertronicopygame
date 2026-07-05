@@ -80,6 +80,11 @@ sudo bash scripts/install-gpio-tft-service.sh
 Run it with `sudo`. Without it, the service install and `systemctl` steps can fail.
 The installer writes the service to `~/.config/systemd/user/retro-tron-gpio.service`, enables it, and turns on linger for the user so it can start at boot.
 It also prints a live install log to `~/retro-tron-gpio-install.log` and fails loudly if the service does not come up.
+If you want every command echoed to the screen, run:
+
+```bash
+sudo bash scripts/install-gpio-tft-service.sh --debug
+```
 
 Check status:
 
