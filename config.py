@@ -81,9 +81,9 @@ PALETTES: tuple[Palette, ...] = (
 
 @dataclass
 class Config:
-    width: int = 320
-    height: int = 240
-    scale: int = 3
+    width: int = 480
+    height: int = 320
+    scale: int = 2
     fps: int = 30
     seed: int = 1979
     fullscreen: bool = False

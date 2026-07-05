@@ -426,11 +426,7 @@ class SunRenderer:
         if self.config.glow:
             pygame.draw.circle(surface, palette.glow, (cx, cy), radius + 2, 2)
         if self.style == 0:
-            for y in range(cy - radius, cy + radius + 1, 7):
-                dy = y - cy
-                dx = int(math.sqrt(max(0, radius * radius - dy * dy)))
-                band_color = color if (y // 7) % 2 == 0 else mix_color(color, -70)
-                pygame.draw.line(surface, band_color, (cx - dx, y), (cx + dx, y), 1)
+            self._draw_striped_disc(surface, cx, cy, radius, color, 7)
             pygame.draw.circle(surface, color, (cx, cy), radius, 1)
         elif self.style == 1:
             pygame.draw.circle(surface, color, (cx, cy), radius, 1)
@@ -439,11 +435,25 @@ class SunRenderer:
             pygame.draw.line(surface, palette.cyan, (cx - radius - 8, cy + tilt), (cx + radius + 8, cy - tilt), 1)
             pygame.draw.line(surface, palette.dim, (cx - radius - 5, cy + tilt + 5), (cx + radius + 5, cy - tilt + 5), 1)
         else:
+            self._draw_striped_disc(surface, cx, cy, radius, color, 9)
             pygame.draw.circle(surface, color, (cx, cy), radius, 1)
             twin = (min(self.config.width - 20, cx + radius + 18), cy + 8)
             pygame.draw.circle(surface, palette.yellow, twin, max(8, radius // 2), 1)
-            for offset in range(-radius, radius + 1, 9):
-                pygame.draw.line(surface, color, (cx - radius, cy + offset), (cx + radius, cy + offset), 1)
+
+    def _draw_striped_disc(
+        self,
+        surface: pygame.Surface,
+        cx: int,
+        cy: int,
+        radius: int,
+        color: tuple[int, int, int],
+        spacing: int,
+    ) -> None:
+        for y in range(cy - radius, cy + radius + 1, spacing):
+            dy = y - cy
+            dx = int(math.sqrt(max(0, radius * radius - dy * dy)))
+            band_color = color if (y // spacing) % 2 == 0 else mix_color(color, -70)
+            pygame.draw.line(surface, band_color, (cx - dx, y), (cx + dx, y), 1)
 
 
 @dataclass
@@ -748,9 +758,9 @@ class App:
 
 def parse_args(argv: list[str]) -> Config:
     parser = argparse.ArgumentParser(description="Retro Tron wireframe visualizer for Pygame.")
-    parser.add_argument("--width", type=int, default=320, help="Internal render width.")
-    parser.add_argument("--height", type=int, default=240, help="Internal render height.")
-    parser.add_argument("--scale", type=int, default=3, help="Window scale for low-resolution output.")
+    parser.add_argument("--width", type=int, default=480, help="Internal render width.")
+    parser.add_argument("--height", type=int, default=320, help="Internal render height.")
+    parser.add_argument("--scale", type=int, default=2, help="Window scale for low-resolution output.")
     parser.add_argument("--fps", type=int, default=30, help="Frame-rate cap.")
     parser.add_argument("--seed", type=int, default=1979, help="Procedural seed.")
     parser.add_argument("--fullscreen", action="store_true", help="Launch fullscreen.")

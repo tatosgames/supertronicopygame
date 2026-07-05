@@ -16,9 +16,10 @@ python main.py
 Useful launch options:
 
 ```powershell
+python main.py --width 480 --height 320
 python main.py --width 320 --height 240
 python main.py --width 320 --height 200
-python main.py --scale 4 --fps 30
+python main.py --scale 2 --fps 30
 python main.py --fullscreen
 python main.py --no-auto
 python main.py --profile pi
@@ -33,7 +34,7 @@ These commands assume the project lives in `/home/pi/supertronicopygame`; adjust
 sudo apt update
 sudo apt install -y python3-pygame git
 cd /home/pi/supertronicopygame
-python3 main.py --profile pi --width 320 --height 240 --scale 1
+python3 main.py --profile pi --width 480 --height 320 --scale 1
 ```
 
 If you prefer a virtual environment and have a recent Python setup:
@@ -43,15 +44,16 @@ cd /home/pi/supertronicopygame
 python3 -m venv venv
 . venv/bin/activate
 pip install -r requirements.txt
-python main.py --profile pi --width 320 --height 240 --scale 1
+python main.py --profile pi --width 480 --height 320 --scale 1
 ```
 
 For a small display or fullscreen launch:
 
 ```bash
+python3 main.py --profile pi --width 480 --height 320 --scale 1
+python3 main.py --profile pi --fullscreen --width 480 --height 320
 python3 main.py --profile pi --width 320 --height 240 --scale 1
 python3 main.py --profile pi --width 320 --height 200 --scale 1
-python3 main.py --profile pi --fullscreen --width 320 --height 240
 ```
 
 ## Raspberry Pi Autorun Fullscreen
@@ -93,7 +95,7 @@ After=graphical-session.target
 [Service]
 Type=simple
 WorkingDirectory=/home/pi/supertronicopygame
-ExecStart=/usr/bin/python3 /home/pi/supertronicopygame/main.py --profile pi --fullscreen --width 320 --height 240 --fps 30
+ExecStart=/usr/bin/python3 /home/pi/supertronicopygame/main.py --profile pi --fullscreen --width 480 --height 320 --fps 30
 Restart=always
 RestartSec=3
 Environment=PYTHONUNBUFFERED=1
@@ -130,9 +132,10 @@ systemctl --user stop retro-tron.service
 systemctl --user disable retro-tron.service
 ```
 
-If your display is `320x200`, change the `ExecStart` line to:
+If your display is `320x240` or `320x200`, change the `ExecStart` line to one of these:
 
 ```ini
+ExecStart=/usr/bin/python3 /home/pi/supertronicopygame/main.py --profile pi --fullscreen --width 320 --height 240 --fps 30
 ExecStart=/usr/bin/python3 /home/pi/supertronicopygame/main.py --profile pi --fullscreen --width 320 --height 200 --fps 30
 ```
 
@@ -150,7 +153,8 @@ ExecStart=/usr/bin/python3 /home/pi/supertronicopygame/main.py --profile pi --fu
 
 ## Notes
 
-- Internal rendering defaults to `320x240`, then scales with nearest-neighbor pixels.
+- Internal rendering defaults to `480x320`, then scales with nearest-neighbor pixels.
+- The render size is parameterized; for a 480x320 Raspberry Pi display, use `--width 480 --height 320 --scale 1` or fullscreen with the same width/height.
 - All visuals are procedural; there are no image or audio assets.
 - Automatic variation is enabled by default: palettes smoothly morph and the procedural seed changes over time.
 - `--profile high` keeps the richest visuals, `--profile pi` is tuned for Raspberry Pi 3, and `--profile minimal` is a fallback for slow displays.
