@@ -87,6 +87,7 @@ class Config:
     fps: int = 30
     seed: int = 1979
     fullscreen: bool = False
+    profile: str = "high"
 
     speed: float = 1.0
     min_speed: float = 0.15
@@ -113,7 +114,7 @@ class Config:
     grid_scroll_rate: float = 3.8
 
     mountain_count: int = 46
-    city_count: int = 42
+    city_count: int = 24
     drone_count: int = 7
     star_count: int = 70
     data_column_count: int = 18
@@ -121,11 +122,15 @@ class Config:
 
     auto_seed_interval: float = 34.0
     auto_palette_interval: float = 17.0
+    palette_transition_duration: float = 6.0
+    current_palette: Palette | None = None
 
     palettes: tuple[Palette, ...] = field(default_factory=lambda: PALETTES)
 
     @property
     def palette(self) -> Palette:
+        if self.current_palette is not None:
+            return self.current_palette
         return self.palettes[self.palette_index % len(self.palettes)]
 
     @property

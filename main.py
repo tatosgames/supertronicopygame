@@ -6,7 +6,7 @@ from dataclasses import dataclass
 
 import pygame
 
-from config import Config
+from config import Config, Palette
 
 
 Point = tuple[int, int]
@@ -36,15 +36,44 @@ def blend_color(a: tuple[int, int, int], b: tuple[int, int, int], t: float) -> t
     )
 
 
+def smoothstep(t: float) -> float:
+    t = clamp(t, 0.0, 1.0)
+    return t * t * (3.0 - 2.0 * t)
+
+
+def blend_palette(a: Palette, b: Palette, t: float) -> Palette:
+    return Palette(
+        name=b.name if t >= 0.5 else a.name,
+        background=blend_color(a.background, b.background, t),
+        green=blend_color(a.green, b.green, t),
+        glow=blend_color(a.glow, b.glow, t),
+        dim=blend_color(a.dim, b.dim, t),
+        red=blend_color(a.red, b.red, t),
+        yellow=blend_color(a.yellow, b.yellow, t),
+        cyan=blend_color(a.cyan, b.cyan, t),
+        magenta=blend_color(a.magenta, b.magenta, t),
+        text=blend_color(a.text, b.text, t),
+    )
+
+
 class Projection:
     def __init__(self, config: Config) -> None:
         self.config = config
+        self.center_x = 0.0
+        self.horizon_y = 0
+        self.focal_length = 0.0
+        self.refresh()
+
+    def refresh(self) -> None:
+        self.center_x = self.config.width * 0.5
+        self.horizon_y = self.config.horizon_y
+        self.focal_length = self.config.focal_length
 
     def project(self, x: float, y: float, z: float) -> Point | None:
         if z <= 0.05:
             return None
-        sx = self.config.width * 0.5 + (x / z) * self.config.focal_length
-        sy = self.config.horizon_y + (y / z) * self.config.focal_length
+        sx = self.center_x + (x / z) * self.focal_length
+        sy = self.horizon_y + (y / z) * self.focal_length
         if sy < -160:
             return None
         return int(sx), int(sy)
@@ -52,17 +81,21 @@ class Projection:
 
 class LineBatch:
     def __init__(self) -> None:
-        self.lines: list[tuple[Point, Point, tuple[int, int, int]]] = []
+        self.lines: list[tuple[Point, Point, tuple[int, int, int], bool]] = []
 
-    def add(self, a: Point | None, b: Point | None, color: tuple[int, int, int]) -> None:
+    def clear(self) -> None:
+        self.lines.clear()
+
+    def add(self, a: Point | None, b: Point | None, color: tuple[int, int, int], glow: bool = True) -> None:
         if a is not None and b is not None:
-            self.lines.append((a, b, color))
+            self.lines.append((a, b, color, glow))
 
     def draw(self, surface: pygame.Surface, glow: bool, glow_color: tuple[int, int, int]) -> None:
         if glow:
-            for a, b, _ in self.lines:
-                pygame.draw.line(surface, glow_color, a, b, 3)
-        for a, b, color in self.lines:
+            for a, b, _, line_glow in self.lines:
+                if line_glow:
+                    pygame.draw.line(surface, glow_color, a, b, 3)
+        for a, b, color, _ in self.lines:
             pygame.draw.line(surface, color, a, b, 1)
 
 
@@ -147,7 +180,9 @@ class GridRenderer:
         palette = self.config.palette
         scroll = (t * self.config.grid_scroll_rate * self.config.speed) % self.config.grid_spacing_z
         floor_y = 1.25
-        z = self.config.grid_z_near + scroll
+        z = self.config.grid_z_near + ((self.config.grid_spacing_z - scroll) % self.config.grid_spacing_z)
+        if z <= self.config.grid_z_near + 0.01:
+            z += self.config.grid_spacing_z
         while z <= self.config.grid_z_far:
             fade = 1.0 - (z / self.config.grid_z_far) * 0.75
             color = mix_color(palette.green, int(-70 * (1.0 - fade)))
@@ -160,7 +195,7 @@ class GridRenderer:
         while x <= self.config.grid_extent_x + 0.01:
             a = projection.project(x, floor_y, self.config.grid_z_near)
             b = projection.project(x, floor_y, self.config.grid_z_far)
-            batch.add(a, b, palette.dim)
+            batch.add(a, b, palette.dim, glow=False)
             x += self.config.grid_spacing_x
 
         for rail_x in (-4.0, 4.0):
@@ -175,15 +210,6 @@ class GridRenderer:
                 projection.project(stripe_x * 0.25, floor_y, self.config.grid_z_far),
                 palette.cyan,
             )
-
-        chevron_z = self.config.grid_z_near + ((t * 6.2 * self.config.speed) % 5.5)
-        while chevron_z < 24.0:
-            left = projection.project(-1.25, floor_y, chevron_z)
-            center = projection.project(0.0, floor_y, chevron_z + 1.1)
-            right = projection.project(1.25, floor_y, chevron_z)
-            batch.add(left, center, palette.yellow)
-            batch.add(center, right, palette.yellow)
-            chevron_z += 5.5
 
 
 class TerrainRenderer:
@@ -227,21 +253,42 @@ class TerrainRenderer:
         horizon: int,
     ) -> None:
         offset = (t * 8.0 * self.config.speed) % self.config.width
-        shifted = [((x - offset) % self.config.width, y) for x, y in points]
-        shifted.sort(key=lambda p: p[0])
-        pts = [(int(x), int(y + math.sin(t * 0.7 + x * 0.03) * 1.3)) for x, y in shifted]
-
         pygame.draw.line(surface, glow_color, (0, horizon), (self.config.width, horizon), 2)
         pygame.draw.line(surface, color, (0, horizon), (self.config.width, horizon), 1)
-        for i in range(len(pts) - 1):
-            a = pts[i]
-            b = pts[i + 1]
-            c = ((a[0] + b[0]) // 2, horizon + 5)
-            pygame.draw.line(surface, glow_color, a, b, 2)
-            pygame.draw.line(surface, color, a, b, 1)
-            pygame.draw.line(surface, color, a, c, 1)
-            if i % 2 == 0:
-                pygame.draw.line(surface, color, b, c, 1)
+        wave_t = t * 0.7
+        step = points[1][0] - points[0][0]
+        split = max(0, min(len(points) - 1, int(offset / step)))
+        self._draw_profile_range(surface, points, split, len(points), -offset, wave_t, color, glow_color, horizon)
+        self._draw_profile_range(surface, points, 0, split + 2, self.config.width - offset, wave_t, color, glow_color, horizon)
+
+    def _draw_profile_range(
+        self,
+        surface: pygame.Surface,
+        points: list[tuple[float, float]],
+        start: int,
+        end: int,
+        shift: float,
+        wave_t: float,
+        color: tuple[int, int, int],
+        glow_color: tuple[int, int, int],
+        horizon: int,
+    ) -> None:
+        last: Point | None = None
+        for i in range(start, min(end, len(points))):
+            x, y = points[i]
+            sx = x + shift
+            if sx < -12 or sx > self.config.width + 12:
+                last = None
+                continue
+            point = (int(sx), int(y + math.sin(wave_t + sx * 0.03) * 1.3))
+            if last is not None:
+                c = ((last[0] + point[0]) // 2, horizon + 5)
+                pygame.draw.line(surface, glow_color, last, point, 2)
+                pygame.draw.line(surface, color, last, point, 1)
+                pygame.draw.line(surface, color, last, c, 1)
+                if i % 2 == 0:
+                    pygame.draw.line(surface, color, point, c, 1)
+            last = point
 
 
 @dataclass
@@ -267,15 +314,15 @@ class CityRenderer:
         self.seed = seed
         rng = random.Random(seed + 202)
         buildings: list[Building] = []
-        x = -18.0
-        while x < 18.0:
-            w = rng.uniform(0.75, 1.8)
-            h = rng.uniform(1.5, 8.4)
-            roof = rng.choice([0, 0, 1, 2])
-            bands = rng.randint(1, 6)
-            columns = rng.randint(1, 4)
-            ornament = rng.choice([0, 0, 1, 2, 3])
-            color_mode = rng.randint(0, 3)
+        x = -17.5
+        while x < 17.5 and len(buildings) < self.config.city_count:
+            w = rng.uniform(0.95, 2.35)
+            h = rng.uniform(1.4, 7.4)
+            roof = rng.choice([0, 0, 0, 1, 2])
+            bands = rng.choice([0, 0, 1, 1, 2])
+            columns = rng.choice([0, 0, 1, 1, 2])
+            ornament = rng.choice([0, 0, 0, 0, 1, 2])
+            color_mode = rng.choice([0, 0, 0, 1, 2])
             buildings.append(
                 Building(
                     x=x,
@@ -288,14 +335,14 @@ class CityRenderer:
                     color_mode=color_mode,
                 )
             )
-            x += w + rng.uniform(0.15, 0.55)
+            x += w + rng.uniform(0.75, 1.65)
         self.buildings = buildings
 
     def draw(self, surface: pygame.Surface, projection: Projection, t: float, batch: LineBatch) -> None:
         palette = self.config.palette
-        parallax = math.sin(t * 0.13 * self.config.speed) * 0.8
-        z = 17.5
-        ground_y = -0.28
+        parallax = math.sin(t * 0.10 * self.config.speed) * 0.45
+        z = 21.5
+        ground_y = -0.18
         for building in self.buildings:
             x0 = building.x + parallax
             x1 = x0 + building.w
@@ -304,9 +351,10 @@ class CityRenderer:
             p1 = projection.project(x1, ground_y, z)
             p2 = projection.project(x1, top_y, z)
             p3 = projection.project(x0, top_y, z)
-            accent_colors = (palette.green, palette.cyan, palette.magenta, palette.yellow)
-            color = accent_colors[building.color_mode] if building.h > 5.4 else palette.green
-            if building.h <= 3.0:
+            self._fill_mask(surface, palette.background, (p0, p1, p2, p3))
+            accent_colors = (palette.green, palette.cyan, palette.magenta)
+            color = accent_colors[building.color_mode] if building.h > 5.8 else palette.green
+            if building.h <= 2.8:
                 color = palette.dim
             batch.add(p0, p1, color)
             batch.add(p1, p2, color)
@@ -315,13 +363,14 @@ class CityRenderer:
 
             for band in range(1, building.bands + 1):
                 y = ground_y - building.h * band / (building.bands + 1)
-                batch.add(projection.project(x0, y, z), projection.project(x1, y, z), palette.dim)
+                batch.add(projection.project(x0, y, z), projection.project(x1, y, z), palette.dim, glow=False)
             for col in range(1, building.columns + 1):
                 x = x0 + building.w * col / (building.columns + 1)
-                batch.add(projection.project(x, ground_y, z), projection.project(x, top_y, z), palette.dim)
+                batch.add(projection.project(x, ground_y, z), projection.project(x, top_y, z), palette.dim, glow=False)
 
             if building.roof == 1:
                 apex = projection.project((x0 + x1) * 0.5, top_y - building.w * 1.2, z)
+                self._fill_mask(surface, palette.background, (p3, p2, apex))
                 batch.add(p3, apex, color)
                 batch.add(apex, p2, color)
             elif building.roof == 2:
@@ -330,23 +379,28 @@ class CityRenderer:
                 batch.add(base, spire, palette.yellow if building.h > 6.5 else color)
 
             mid_x = (x0 + x1) * 0.5
-            if building.ornament == 1 and building.h > 4.0:
+            if building.ornament == 1 and building.h > 5.0:
                 tip = projection.project(mid_x, top_y - 1.2, z)
                 left = projection.project(mid_x - building.w * 0.25, top_y, z)
                 right = projection.project(mid_x + building.w * 0.25, top_y, z)
                 batch.add(left, tip, palette.cyan)
                 batch.add(tip, right, palette.cyan)
-            elif building.ornament == 2 and building.h > 5.5:
-                mast = projection.project(mid_x, top_y - 2.3, z)
+            elif building.ornament == 2 and building.h > 6.2:
+                mast = projection.project(mid_x, top_y - 1.6, z)
                 base = projection.project(mid_x, top_y, z)
-                batch.add(base, mast, palette.yellow)
-                beacon = projection.project(mid_x, top_y - 2.5 + math.sin(t * 4.0) * 0.15, z)
+                batch.add(base, mast, palette.dim, glow=False)
+                beacon = projection.project(mid_x, top_y - 1.8 + math.sin(t * 4.0) * 0.12, z)
                 if beacon is not None:
                     pygame.draw.circle(surface, palette.red, beacon, 1)
-            elif building.ornament == 3 and building.h > 3.5:
-                arch_y = ground_y - building.h * 0.35
-                batch.add(projection.project(x0, arch_y, z), projection.project(mid_x, top_y, z), palette.dim)
-                batch.add(projection.project(mid_x, top_y, z), projection.project(x1, arch_y, z), palette.dim)
+
+    def _fill_mask(
+        self,
+        surface: pygame.Surface,
+        color: tuple[int, int, int],
+        points: tuple[Point | None, ...],
+    ) -> None:
+        if all(point is not None for point in points):
+            pygame.draw.polygon(surface, color, points)
 
 
 class SunRenderer:
@@ -368,7 +422,7 @@ class SunRenderer:
         radius = int(self.config.height * (0.135 + math.sin(t * 1.3) * 0.006))
         cx = int(self.config.width * self.x_ratio)
         cy = int(self.config.horizon_y - self.config.height * self.y_ratio)
-        color = palette.red if self.config.palette_index % 2 == 0 else palette.yellow
+        color = blend_color(palette.red, palette.yellow, 0.25 + 0.25 * math.sin(t * 0.45))
         if self.config.glow:
             pygame.draw.circle(surface, palette.glow, (cx, cy), radius + 2, 2)
         if self.style == 0:
@@ -487,13 +541,13 @@ class PortalRenderer:
         rng = random.Random(seed + 606)
         self.portals = [
             Portal(
-                x=rng.choice([-1, 1]) * rng.uniform(5.0, 11.0),
-                z=rng.uniform(8.0, 20.0),
-                radius=rng.uniform(1.1, 2.4),
+                x=rng.uniform(7.0, 12.0),
+                z=rng.uniform(12.0, 20.0),
+                radius=rng.uniform(0.75, 1.35),
                 phase=rng.uniform(0.0, math.tau),
-                color_mode=rng.randint(0, 2),
+                color_mode=rng.randint(0, 1),
             )
-            for _ in range(3)
+            for _ in range(1)
         ]
 
     def draw(self, surface: pygame.Surface, projection: Projection, t: float) -> None:
@@ -522,7 +576,8 @@ class FXRenderer:
         self.config = config
         self.scanline_surface = pygame.Surface((config.width, config.height), pygame.SRCALPHA)
         self.vignette_surface = pygame.Surface((config.width, config.height), pygame.SRCALPHA)
-        self.flicker_surface = pygame.Surface((config.width, config.height), pygame.SRCALPHA)
+        self.flicker_surfaces: dict[int, pygame.Surface] = {}
+        self.noise_frames: list[list[Point]] = []
         self.rebuild()
 
     def rebuild(self) -> None:
@@ -535,18 +590,26 @@ class FXRenderer:
             rect = pygame.Rect(i, i, self.config.width - i * 2, self.config.height - i * 2)
             if rect.width > 0 and rect.height > 0:
                 pygame.draw.rect(self.vignette_surface, (0, 0, 0, alpha), rect, 1)
-        self.flicker_surface = pygame.Surface((self.config.width, self.config.height), pygame.SRCALPHA)
+        self.flicker_surfaces = {}
+        for shade in range(1, 16):
+            surface = pygame.Surface((self.config.width, self.config.height), pygame.SRCALPHA)
+            surface.fill((shade, shade, shade, 9))
+            self.flicker_surfaces[shade] = surface
+        rng = random.Random(self.config.seed + 707)
+        self.noise_frames = [
+            [
+                (rng.randrange(0, self.config.width), rng.randrange(0, self.config.height))
+                for _ in range(10)
+            ]
+            for _ in range(16)
+        ]
 
     def draw(self, surface: pygame.Surface, t: float) -> None:
         if self.config.flicker:
             shade = int(8 + math.sin(t * 18.0) * 5)
             if shade > 0:
-                self.flicker_surface.fill((shade, shade, shade, 9))
-                surface.blit(self.flicker_surface, (0, 0))
-            rng = random.Random(int(t * 14.0))
-            for _ in range(10):
-                x = rng.randrange(0, self.config.width)
-                y = rng.randrange(0, self.config.height)
+                surface.blit(self.flicker_surfaces[min(15, shade)], (0, 0))
+            for x, y in self.noise_frames[int(t * 14.0) & 15]:
                 surface.set_at((x, y), self.config.palette.text)
         if self.config.scanlines:
             surface.blit(self.scanline_surface, (0, 0))
@@ -565,6 +628,7 @@ class App:
         self.clock = pygame.time.Clock()
         self.font = pygame.font.Font(None, 16)
         self.projection = Projection(config)
+        self.batch = LineBatch()
         self.background = BackgroundRenderer(config)
         self.grid = GridRenderer(config)
         self.terrain = TerrainRenderer(config)
@@ -577,6 +641,10 @@ class App:
         self.elapsed = 0.0
         self.next_seed_change = config.auto_seed_interval
         self.next_palette_change = config.auto_palette_interval
+        self.palette_transition_start = -config.palette_transition_duration
+        self.palette_from = config.palette
+        self.palette_to = config.palette
+        self.config.current_palette = config.palette
 
     def randomize_seed(self) -> None:
         self.config.seed = random.randint(1, 999_999)
@@ -586,6 +654,21 @@ class App:
         self.sun.regenerate(self.config.seed)
         self.drones.regenerate(self.config.seed)
         self.portals.regenerate(self.config.seed)
+
+    def start_palette_transition(self, target_index: int) -> None:
+        self.palette_from = self.config.palette
+        self.config.palette_index = target_index % len(self.config.palettes)
+        self.palette_to = self.config.palettes[self.config.palette_index]
+        self.palette_transition_start = self.elapsed
+        self.config.current_palette = self.palette_from
+
+    def update_palette_transition(self) -> None:
+        elapsed = self.elapsed - self.palette_transition_start
+        if elapsed >= self.config.palette_transition_duration:
+            self.config.current_palette = self.palette_to
+            return
+        t = smoothstep(elapsed / self.config.palette_transition_duration)
+        self.config.current_palette = blend_palette(self.palette_from, self.palette_to, t)
 
     def handle_event(self, event: pygame.event.Event) -> None:
         if event.type == pygame.QUIT:
@@ -600,7 +683,7 @@ class App:
             elif event.key == pygame.K_g:
                 self.config.glow = not self.config.glow
             elif event.key == pygame.K_c:
-                self.config.palette_index = (self.config.palette_index + 1) % len(self.config.palettes)
+                self.start_palette_transition(self.config.palette_index + 1)
             elif event.key == pygame.K_v:
                 self.config.auto_variation = not self.config.auto_variation
             elif event.key == pygame.K_SPACE:
@@ -615,10 +698,11 @@ class App:
                 self.config.horizon_ratio = min(self.config.horizon_max, self.config.horizon_ratio + 0.01)
 
     def update(self) -> None:
+        self.update_palette_transition()
         if not self.config.auto_variation:
             return
         if self.elapsed >= self.next_palette_change:
-            self.config.palette_index = (self.config.palette_index + 1) % len(self.config.palettes)
+            self.start_palette_transition(self.config.palette_index + 1)
             self.next_palette_change += self.config.auto_palette_interval
         if self.elapsed >= self.next_seed_change:
             self.randomize_seed()
@@ -628,14 +712,16 @@ class App:
         if not self.config.show_fps:
             return
         auto = "AUTO" if self.config.auto_variation else "HOLD"
-        label = f"{self.clock.get_fps():04.1f} FPS  {self.config.palette.name}  {auto}  speed {self.config.speed:.2f}"
+        label = f"{self.clock.get_fps():04.1f} FPS  {self.config.profile}  {self.config.palette.name}  {auto}  speed {self.config.speed:.2f}"
         text = self.font.render(label, False, self.config.palette.text)
         self.surface.blit(text, (5, 5))
 
     def draw(self) -> None:
         palette = self.config.palette
         self.surface.fill(palette.background)
-        batch = LineBatch()
+        self.projection.refresh()
+        batch = self.batch
+        batch.clear()
         self.background.draw(self.surface, self.elapsed)
         self.sun.draw(self.surface, self.elapsed)
         self.terrain.draw(self.surface, self.elapsed)
@@ -669,21 +755,52 @@ def parse_args(argv: list[str]) -> Config:
     parser.add_argument("--seed", type=int, default=1979, help="Procedural seed.")
     parser.add_argument("--fullscreen", action="store_true", help="Launch fullscreen.")
     parser.add_argument("--no-auto", action="store_true", help="Disable automatic seed and palette variation.")
+    parser.add_argument(
+        "--profile",
+        choices=("high", "pi", "minimal"),
+        default="high",
+        help="Visual/performance profile. Use 'pi' for Raspberry Pi 3.",
+    )
     args = parser.parse_args(argv)
 
     width = max(160, args.width)
     height = max(120, args.height)
     scale = max(1, args.scale)
     fps = max(15, min(120, args.fps))
-    return Config(
+    config = Config(
         width=width,
         height=height,
         scale=scale,
         fps=fps,
         seed=args.seed,
         fullscreen=args.fullscreen,
+        profile=args.profile,
         auto_variation=not args.no_auto,
     )
+    apply_performance_profile(config)
+    return config
+
+
+def apply_performance_profile(config: Config) -> None:
+    if config.profile == "pi":
+        config.glow = False
+        config.flicker = False
+        config.mountain_count = 34
+        config.city_count = 18
+        config.drone_count = 4
+        config.star_count = 46
+        config.data_column_count = 10
+        config.grid_z_far = 32.0
+    elif config.profile == "minimal":
+        config.glow = False
+        config.scanlines = False
+        config.flicker = False
+        config.mountain_count = 26
+        config.city_count = 14
+        config.drone_count = 2
+        config.star_count = 22
+        config.data_column_count = 5
+        config.grid_z_far = 26.0
 
 
 def main(argv: list[str] | None = None) -> int:
