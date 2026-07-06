@@ -2,206 +2,78 @@
 
 Python/Pygame visualizer for Raspberry Pi.
 
-## Repo URL
+## Repo
 
 ```bash
 https://github.com/tatosgames/supertronicopygame.git
 ```
 
-## GPIO TFT Setup
-
-This is the path for a GPIO-connected Cytron XPT2046 TFT, not HDMI.
-
-Cytron driver repo:
-
-```bash
-https://github.com/CytronTechnologies/xpt2046-LCD-Driver-for-Raspberry-Pi
-```
-
-That driver repo installs the display stack by changing Pi boot/config files and Xorg config. Install and verify the panel first, then use the commands below.
-
-## 1. Install dependencies
+## Setup
 
 ```bash
 sudo apt update
 sudo apt install -y git python3-pygame
-```
-
-If `python3-pygame` is missing on your image:
-
-```bash
-sudo apt update
-sudo apt install -y git python3-venv
-```
-
-## 2. Clone the repo
-
-```bash
 cd ~
 git clone https://github.com/tatosgames/supertronicopygame.git
 cd supertronicopygame
 ```
 
-If you want a venv:
+## GPIO TFT
+
+Use this path only for the GPIO-connected Cytron XPT2046 TFT, not HDMI.
 
 ```bash
-python3 -m venv venv
-. venv/bin/activate
-pip install -r requirements.txt
+https://github.com/CytronTechnologies/xpt2046-LCD-Driver-for-Raspberry-Pi
 ```
 
-## 3. Run it manually
+Install and verify that panel first, then run:
 
-From the repo:
+```bash
+cd ~/supertronicopygame
+bash scripts/install-display.sh --target gpio
+bash scripts/run-display.sh --target gpio
+```
+
+The installer creates the `tronico-screen.service` user service and starts it.
+
+The old wrappers still work:
 
 ```bash
 cd ~/supertronicopygame
 bash scripts/rpi.sh --kiosk
 ```
 
-That starts the app on the Cytron display path and, after exit, checks `origin/main` and pulls updates if internet is available.
+Auto-start on boot is installed by `scripts/install-display.sh --target gpio`.
 
-To skip update for one run:
+## HDMI 480x320
 
-```bash
-cd ~/supertronicopygame
-bash scripts/rpi.sh --no-update --kiosk
-```
-
-## 4. Auto-start on boot
-
-Install the user service:
+Use this path for the fixed 480x320 HDMI panel on Raspberry Pi OS 64-bit (Bookworm or Trixie).
 
 ```bash
 cd ~/supertronicopygame
-sudo bash scripts/install-gpio-tft-service.sh
+bash scripts/install-display.sh --target hdmi
+bash scripts/run-display.sh --target hdmi
 ```
 
-Run it with `sudo`. Without it, the service install and `systemctl` steps can fail.
-The installer writes the service to `~/.config/systemd/user/retro-tron-gpio.service`, enables it, and turns on linger for the user so it can start at boot.
-It also prints a live install log to `~/retro-tron-gpio-install.log` and fails loudly if the service does not come up.
-If you want every command echoed to the screen, run:
+The installer creates the `tronico-screen.service` user service and starts it.
 
-```bash
-sudo bash scripts/install-gpio-tft-service.sh --debug
-```
-
-Check status:
-
-```bash
-systemctl --user status retro-tron-gpio.service --no-pager
-```
-
-Check logs:
-
-```bash
-journalctl --user -u retro-tron-gpio.service -f
-```
-
-Stop it:
-
-```bash
-systemctl --user stop retro-tron-gpio.service
-```
-
-Disable it:
-
-```bash
-systemctl --user disable retro-tron-gpio.service
-```
-
-If you ever need to reinstall from scratch:
-
-```bash
-systemctl --user stop retro-tron-gpio.service
-systemctl --user disable retro-tron-gpio.service
-rm -f ~/.config/systemd/user/retro-tron-gpio.service
-systemctl --user daemon-reload
-cd ~/supertronicopygame
-sudo bash scripts/install-gpio-tft-service.sh
-```
-
-If the install test fails, open the log file:
-
-```bash
-cat ~/retro-tron-gpio-install.log
-```
-
-## 5. If you already cloned before and want the latest code
-
-```bash
-cd ~/supertronicopygame
-git pull --ff-only origin main
-```
-
-## Boot Check
-
-Run this when boot feels slow or Plymouth hangs too long:
-
-```bash
-cd ~/supertronicopygame
-bash scripts/boot-check.sh
-```
-
-It prints a short report and saves the full output to:
-
-```bash
-~/retro-tron-boot-check.log
-```
-
-If you want the long version:
-
-```bash
-cd ~/supertronicopygame
-bash scripts/boot-check.sh --full
-```
-
-The short report focuses on the main bottlenecks:
-- boot timing
-- top boot delays
-- Plymouth
-- NetworkManager wait-online
-- display/session startup
-- TFT/driver lines
-
-## Boot Speedup
-
-Run this to remove the common boot delays:
-
-```bash
-cd ~/supertronicopygame
-sudo bash scripts/boot-speedup.sh
-```
-
-It will:
-- back up `cmdline.txt`
-- remove `quiet splash`
-- disable and mask `NetworkManager-wait-online.service`
-- mask Plymouth services if they exist
-
-After it finishes, reboot:
-
-```bash
-sudo reboot
-```
-
-## Alternate HDMI Path
-
-If you want to run this on an HDMI monitor instead of the GPIO TFT, use:
-
-```bash
-cd ~/supertronicopygame
-bash scripts/hdmi.sh --install
-```
-
-Then run it with:
+The old wrapper still works:
 
 ```bash
 cd ~/supertronicopygame
 bash scripts/hdmi.sh
 ```
 
-That path is for HDMI only. Keep using `scripts/rpi.sh` for the Cytron GPIO TFT.
+## Utilities
+
+Update the repo:
+
+```bash
+cd ~/supertronicopygame
+git pull --ff-only origin main
+```
+
+Boot tuning: see [docs/boot.md](docs/boot.md)
 
 ## Controls
 
