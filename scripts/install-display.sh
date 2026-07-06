@@ -111,7 +111,7 @@ After=graphical-session.target
 
 [Service]
 Type=simple
-WorkingDirectory=$TARGET_HOME/supertronicopygame
+WorkingDirectory=$ROOT_DIR
 Environment=DISPLAY=:0
 Environment=XAUTHORITY=$TARGET_HOME/.Xauthority
 Environment=SDL_VIDEODRIVER=x11
