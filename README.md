@@ -34,7 +34,7 @@ bash scripts/install-display.sh --target gpio
 bash scripts/run-display.sh --target gpio
 ```
 
-The installer creates the `tronico-screen.service` user service and starts it.
+The installer creates the `tronico-screen.service` system service and starts it.
 
 The old wrappers still work:
 
@@ -55,7 +55,7 @@ bash scripts/install-display.sh --target hdmi
 bash scripts/run-display.sh --target hdmi
 ```
 
-The installer creates the `tronico-screen.service` user service and starts it.
+The installer creates the `tronico-screen.service` system service and starts it.
 
 The old wrapper still works:
 
