@@ -27,6 +27,7 @@ def parse_args(argv: list[str]) -> Config:
 def apply_performance_profile(config: Config) -> None:
     if config.profile == "pi":
         config.glow = False
+        config.scanlines = False
         config.flicker = False
         config.mountain_count = 34
         config.city_count = 18

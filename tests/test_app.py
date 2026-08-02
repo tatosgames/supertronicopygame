@@ -17,7 +17,7 @@ class AppTests(unittest.TestCase):
         self.app.close()
 
     def test_documented_toggle_controls(self) -> None:
-        for key, attribute in ((pygame.K_f, "show_fps"), (pygame.K_s, "scanlines"), (pygame.K_g, "glow"), (pygame.K_d, "vector_distortion"), (pygame.K_v, "auto_variation")):
+        for key, attribute in ((pygame.K_f, "show_fps"), (pygame.K_s, "scanlines"), (pygame.K_g, "glow"), (pygame.K_d, "vector_distortion"), (pygame.K_v, "auto_variation"), (pygame.K_m, "audio_enabled")):
             before = getattr(self.app.config, attribute)
             self.app.handle_event(pygame.event.Event(pygame.KEYDOWN, key=key))
             self.assertEqual(getattr(self.app.config, attribute), not before)

@@ -17,6 +17,7 @@ class Microphone:
     """Capture a smoothed mono RMS level from the first suitable USB input."""
 
     def __init__(self, samplerate: int = 44100, blocksize: int = 1024, enabled: bool = True) -> None:
+        self.enabled = enabled
         self.features = AudioFeatures()
         self.available = False
         self.device_name = ""
@@ -104,7 +105,7 @@ class Microphone:
                     self._stream_finished = True
 
     def start(self) -> None:
-        if self._stream is None:
+        if self._stream is None or not self.enabled:
             return
         self._stream_finished = False
         self._stop_event.clear()
@@ -122,6 +123,32 @@ class Microphone:
         except Exception as exc:
             self.error = str(exc)
             self.available = False
+
+    def set_enabled(self, enabled: bool) -> None:
+        """Pause or resume capture while keeping the input stream reusable."""
+        if enabled == self.enabled:
+            return
+        self.enabled = enabled
+
+        if not enabled:
+            self._stopping = True
+            self._stop_event.set()
+            try:
+                if self._stream is not None:
+                    self._stream.stop()
+                if self._worker is not None:
+                    self._worker.join(timeout=1.0)
+            except Exception:
+                pass
+            self._worker = None
+            self.available = False
+            self.features = AudioFeatures()
+            with self._lock:
+                self._pending_features = AudioFeatures()
+            return
+
+        self._stopping = False
+        self.start()
 
     def update(self, dt: float) -> None:
         with self._lock:

@@ -127,6 +127,7 @@ python3 main.py --profile pi --width 480 --height 320 --scale 1 --fullscreen
 - `D`: attiva/disattiva il disturbo vettoriale reattivo al microfono;
 - `C`: cambia palette;
 - `V`: attiva/disattiva la variazione automatica;
+- `M`: attiva/disattiva il flusso del microfono;
 - `SPACE`: rigenera terreno, città e droni;
 - `UP` / `DOWN`: aumenta o riduce la velocità;
 - `LEFT` / `RIGHT`: modifica l’orizzonte.

@@ -66,6 +66,10 @@ class App:
         self.palette_transition_start = self.elapsed
         self.config.current_palette = self.palette_from
 
+    def toggle_microphone(self) -> None:
+        self.config.audio_enabled = not self.config.audio_enabled
+        self.microphone.set_enabled(self.config.audio_enabled)
+
     def update_palette_transition(self) -> None:
         elapsed = self.elapsed - self.palette_transition_start
         if elapsed >= self.config.palette_transition_duration:
@@ -95,6 +99,8 @@ class App:
                 self.start_palette_transition(self.config.palette_index + 1)
             elif event.key == pygame.K_v:
                 self.config.auto_variation = not self.config.auto_variation
+            elif event.key == pygame.K_m:
+                self.toggle_microphone()
             elif event.key == pygame.K_SPACE:
                 self.randomize_seed()
             elif event.key == pygame.K_UP:
