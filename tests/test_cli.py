@@ -4,6 +4,9 @@ from cli import parse_args
 
 
 class CliTests(unittest.TestCase):
+    def test_scanlines_are_disabled_by_default(self) -> None:
+        self.assertFalse(parse_args([]).scanlines)
+
     def test_clamps_display_arguments_and_disables_optional_features(self) -> None:
         config = parse_args(["--width", "1", "--height", "1", "--scale", "0", "--fps", "999", "--no-auto", "--no-audio"])
         self.assertEqual((config.width, config.height, config.scale, config.fps), (160, 120, 1, 120))
@@ -13,6 +16,7 @@ class CliTests(unittest.TestCase):
     def test_pi_profile_keeps_the_documented_budget(self) -> None:
         config = parse_args(["--profile", "pi"])
         self.assertFalse(config.glow)
+        self.assertFalse(config.vignette)
         self.assertFalse(config.vector_distortion)
         self.assertFalse(config.flicker)
         self.assertEqual((config.mountain_count, config.city_count, config.drone_count), (34, 18, 4))
@@ -22,6 +26,7 @@ class CliTests(unittest.TestCase):
         config = parse_args(["--profile", "minimal"])
         self.assertFalse(config.glow)
         self.assertFalse(config.scanlines)
+        self.assertFalse(config.vignette)
         self.assertFalse(config.vector_distortion)
         self.assertFalse(config.flicker)
         self.assertEqual((config.mountain_count, config.city_count, config.drone_count), (26, 14, 2))

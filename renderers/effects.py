@@ -21,20 +21,23 @@ class FXRenderer:
         self.scanline_surface = pygame.Surface((self.config.width, self.config.height), pygame.SRCALPHA)
         for y in range(0, self.config.height, 4):
             pygame.draw.line(self.scanline_surface, (0, 0, 0, 90), (0, y), (self.config.width, y), 1)
+        self.scanline_surface = self.scanline_surface.convert_alpha()
         self.vignette_surface = pygame.Surface((self.config.width, self.config.height), pygame.SRCALPHA)
         for i in range(18):
             alpha = int(5 + i * 3.2)
             rect = pygame.Rect(i, i, self.config.width - i * 2, self.config.height - i * 2)
             if rect.width > 0 and rect.height > 0:
                 pygame.draw.rect(self.vignette_surface, (0, 0, 0, alpha), rect, 1)
+        self.vignette_surface = self.vignette_surface.convert_alpha()
         self.combined_overlay = pygame.Surface((self.config.width, self.config.height), pygame.SRCALPHA)
         self.combined_overlay.blit(self.scanline_surface, (0, 0))
         self.combined_overlay.blit(self.vignette_surface, (0, 0))
+        self.combined_overlay = self.combined_overlay.convert_alpha()
         self.flicker_surfaces = {}
         for shade in range(1, 16):
             flicker = pygame.Surface((self.config.width, self.config.height), pygame.SRCALPHA)
             flicker.fill((shade, shade, shade, 9))
-            self.flicker_surfaces[shade] = flicker
+            self.flicker_surfaces[shade] = flicker.convert_alpha()
         rng = random.Random(self.config.seed + 707)
         self.noise_frames = [[(rng.randrange(0, self.config.width), rng.randrange(0, self.config.height)) for _ in range(10)] for _ in range(16)]
 
@@ -46,6 +49,7 @@ class FXRenderer:
             for x, y in self.noise_frames[int(t * 14.0) & 15]:
                 surface.set_at((x, y), self.config.palette.text)
         if self.config.scanlines:
-            surface.blit(self.combined_overlay, (0, 0))
-        else:
+            overlay = self.combined_overlay if self.config.vignette else self.scanline_surface
+            surface.blit(overlay, (0, 0))
+        elif self.config.vignette:
             surface.blit(self.vignette_surface, (0, 0))

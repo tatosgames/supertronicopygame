@@ -28,6 +28,7 @@ def apply_performance_profile(config: Config) -> None:
     if config.profile == "pi":
         config.glow = False
         config.scanlines = False
+        config.vignette = False
         config.vector_distortion = False
         config.flicker = False
         config.mountain_count = 34
@@ -40,6 +41,7 @@ def apply_performance_profile(config: Config) -> None:
     elif config.profile == "minimal":
         config.glow = False
         config.scanlines = False
+        config.vignette = False
         config.vector_distortion = False
         config.flicker = False
         config.mountain_count = 26

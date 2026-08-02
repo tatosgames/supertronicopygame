@@ -99,8 +99,9 @@ class Config:
     horizon_max: float = 0.58
     focal_ratio: float = 0.74
 
-    scanlines: bool = True
+    scanlines: bool = False
     glow: bool = True
+    vignette: bool = True
     vector_distortion: bool = True
     vector_distortion_max_pixels: int = 10
     flicker: bool = True

@@ -56,3 +56,11 @@ class AppTests(unittest.TestCase):
         self.app.elapsed = 1.0
         self.app.draw()
         self.assertEqual(self.app.surface.get_size(), (480, 320))
+
+    def test_scale_one_renders_directly_to_the_display_surface(self) -> None:
+        app = App(parse_args(["--profile", "pi", "--no-audio", "--no-auto", "--scale", "1"]))
+        try:
+            self.assertIs(app.surface, app.window)
+            app.draw()
+        finally:
+            app.close()

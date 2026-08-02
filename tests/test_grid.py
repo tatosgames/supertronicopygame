@@ -31,8 +31,7 @@ class GridRendererTests(unittest.TestCase):
         self.grid.draw(None, self.projection, 0.0, batch)
         expected_depth_lines = int((self.config.grid_extent_x * 2) / self.config.grid_spacing_x) + 1
         expected_depth_lines += 4
-        polyline_segments = sum(len(points) - 1 for points, _, _ in batch.polylines)
-        self.assertGreaterEqual(polyline_segments, expected_depth_lines * self.config.grid_curve_segments)
+        self.assertGreaterEqual(len(batch.lines), expected_depth_lines * self.config.grid_curve_segments)
 
     def test_curve_only_active_during_transition_and_returns_quickly(self) -> None:
         self.grid.turn_current = 0.0

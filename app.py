@@ -22,8 +22,14 @@ class App:
         flags = pygame.FULLSCREEN if config.fullscreen else 0
         self.window = pygame.display.set_mode((config.width * config.scale, config.height * config.scale), flags)
         pygame.mouse.set_visible(False)
-        self.surface = pygame.Surface((config.width, config.height)).convert()
+        internal_size = (config.width, config.height)
+        self.surface = self.window if self.window.get_size() == internal_size else pygame.Surface(internal_size).convert()
         self.scene_surface = pygame.Surface((config.width, config.height)).convert()
+        print(
+            f"Video: driver={pygame.display.get_driver()} pygame={pygame.version.ver} "
+            f"SDL={pygame.version.SDL} window={self.window.get_size()} direct={self.surface is self.window}",
+            flush=True,
+        )
         self.clock = pygame.time.Clock()
         self.font = pygame.font.Font(None, 16)
         self.projection = Projection(config)
@@ -54,6 +60,7 @@ class App:
         self._closed = False
         self.update_ms = 0.0
         self.draw_ms = 0.0
+        self.present_ms = 0.0
 
     def randomize_seed(self) -> None:
         if self.city.transition_buildings is not None or self.terrain.transition_points is not None:
@@ -142,7 +149,7 @@ class App:
         if not self.config.show_fps:
             return
         auto = "AUTO" if self.config.auto_variation else "HOLD"
-        label = f"{self.clock.get_fps():04.1f} FPS  draw {self.draw_ms:04.1f}ms  update {self.update_ms:04.1f}ms"
+        label = f"{self.clock.get_fps():04.1f} FPS  draw {self.draw_ms:04.1f}  flip {self.present_ms:04.1f}ms"
         self.surface.blit(self.font.render(label, False, self.config.palette.text), (5, 5))
 
     def draw_vu_meter(self) -> None:
@@ -156,7 +163,8 @@ class App:
     def draw(self) -> None:
         draw_started = time.perf_counter() if self.config.show_fps else 0.0
         palette = self.config.palette
-        scene = self.scene_surface
+        distortion_active = self.config.vector_distortion and self.config.audio_onset > 0.0
+        scene = self.scene_surface if distortion_active else self.surface
         scene.fill(palette.background)
         self.projection.refresh()
         self.batch.clear()
@@ -169,19 +177,18 @@ class App:
         self.batch.draw(scene, self.config.glow, palette.glow, self.config.audio_onset)
         self.portals.draw(scene, self.projection, self.elapsed)
         self.fx.draw(scene, self.elapsed)
-        if self.config.vector_distortion and self.config.audio_onset > 0.0:
+        if distortion_active:
             self.vector_distortion.draw(scene, self.surface, palette.background, self.elapsed, self.config.audio_onset)
-        else:
-            self.surface.blit(scene, (0, 0))
         self.draw_vu_meter()
         self.draw_fps()
-        if self.surface.get_size() == self.window.get_size():
-            self.window.blit(self.surface, (0, 0))
-        else:
+        if self.surface is not self.window:
             pygame.transform.scale(self.surface, self.window.get_size(), self.window)
         if draw_started:
             self.draw_ms = (time.perf_counter() - draw_started) * 1000.0
+        present_started = time.perf_counter() if self.config.show_fps else 0.0
         pygame.display.flip()
+        if present_started:
+            self.present_ms = (time.perf_counter() - present_started) * 1000.0
 
     def close(self) -> None:
         if self._closed:

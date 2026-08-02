@@ -53,16 +53,16 @@ class GridRenderer:
         color: tuple[int, int, int],
         glow: bool,
     ) -> None:
-        points: list[Point] = []
+        previous: Point | None = None
         segments = max(1, self.config.grid_curve_segments)
         for index in range(segments + 1):
             progress = index / segments
             z = self.config.grid_z_near + (self.config.grid_z_far - self.config.grid_z_near) * progress
             x = x_near + (x_far - x_near) * progress
             point = self._project_curved(projection, x, floor_y, z)
-            if point is not None:
-                points.append(point)
-        batch.add_polyline(points, color, glow=glow)
+            if previous is not None:
+                batch.add(previous, point, color, glow=glow)
+            previous = point
 
     def draw(self, surface: pygame.Surface, projection: Projection, t: float, batch: LineBatch) -> None:
         palette = self.config.palette
@@ -176,30 +176,21 @@ class TerrainRenderer:
 
     def _draw_profile_range(self, surface: pygame.Surface, points: list[tuple[float, float]], start: int, end: int, shift: float, wave_t: float, color: tuple[int, int, int], glow_color: tuple[int, int, int], horizon: int) -> None:
         last: Point | None = None
-        profile_chunks: list[list[Point]] = []
-        current_chunk: list[Point] = []
         for i in range(start, min(end, len(points))):
             x, y = points[i]
             sx = x + shift
             if sx < -12 or sx > self.config.width + 12:
                 last = None
-                if len(current_chunk) >= 2:
-                    profile_chunks.append(current_chunk)
-                current_chunk = []
                 continue
             point = (int(sx), int(y + math.sin(wave_t + sx * 0.03) * 1.3))
-            current_chunk.append(point)
             if last is not None:
                 c = ((last[0] + point[0]) // 2, horizon + 5)
+                pygame.draw.line(surface, glow_color, last, point, 2)
+                pygame.draw.line(surface, color, last, point, 1)
                 pygame.draw.line(surface, color, last, c, 1)
                 if i % 2 == 0:
                     pygame.draw.line(surface, color, point, c, 1)
             last = point
-        if len(current_chunk) >= 2:
-            profile_chunks.append(current_chunk)
-        for chunk in profile_chunks:
-            pygame.draw.lines(surface, glow_color, False, chunk, 2)
-            pygame.draw.lines(surface, color, False, chunk, 1)
 
 
 @dataclass
