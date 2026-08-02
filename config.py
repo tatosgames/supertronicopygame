@@ -128,6 +128,7 @@ class Config:
     skyline_depth_layers: int = 2
 
     auto_seed_interval: float = 34.0
+    skyline_transition_duration: float = 5.0
     auto_palette_interval: float = 17.0
     palette_transition_duration: float = 6.0
     current_palette: Palette | None = None

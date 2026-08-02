@@ -187,7 +187,7 @@ class GridRenderer:
 
     def draw(self, surface: pygame.Surface, projection: Projection, t: float, batch: LineBatch) -> None:
         palette = self.config.palette
-        audio_speed = 1.0 + self.config.audio_low * 0.9
+        audio_speed = 1.0 + self.config.audio_low * 0.1
         scroll = (t * self.config.grid_scroll_rate * self.config.speed * audio_speed) % self.config.grid_spacing_z
         floor_y = 1.25
         z = self.config.grid_z_near + ((self.config.grid_spacing_z - scroll) % self.config.grid_spacing_z)
@@ -227,6 +227,10 @@ class TerrainRenderer:
         self.config = config
         self.points: list[tuple[float, float]] = []
         self.far_points: list[tuple[float, float]] = []
+        self.transition_points: list[tuple[float, float]] | None = None
+        self.transition_far_points: list[tuple[float, float]] | None = None
+        self.transition_seed: int | None = None
+        self.transition_elapsed = 0.0
         self.seed = -1
         self.regenerate(config.seed)
 
@@ -234,6 +238,28 @@ class TerrainRenderer:
         self.seed = seed
         self.points = self._make_profile(seed + 101, 0.25, 0)
         self.far_points = self._make_profile(seed + 111, 0.14, -8)
+
+    def begin_transition(self, seed: int) -> None:
+        if self.transition_points is not None:
+            return
+        self.transition_seed = seed
+        self.transition_points = self._make_profile(seed + 101, 0.25, 0)
+        self.transition_far_points = self._make_profile(seed + 111, 0.14, -8)
+        self.transition_elapsed = 0.0
+
+    def update_transition(self, dt: float) -> None:
+        if self.transition_points is None or self.transition_far_points is None:
+            return
+        self.transition_elapsed += max(0.0, dt)
+        if self.transition_elapsed < self.config.skyline_transition_duration:
+            return
+        self.points = self.transition_points
+        self.far_points = self.transition_far_points
+        self.seed = self.transition_seed if self.transition_seed is not None else self.seed
+        self.transition_points = None
+        self.transition_far_points = None
+        self.transition_seed = None
+        self.transition_elapsed = 0.0
 
     def _make_profile(self, seed: int, height_ratio: float, baseline_offset: int) -> list[tuple[float, float]]:
         rng = random.Random(seed)
@@ -250,8 +276,91 @@ class TerrainRenderer:
     def draw(self, surface: pygame.Surface, t: float) -> None:
         palette = self.config.palette
         horizon = self.config.horizon_y
+        if self.transition_points is not None and self.transition_far_points is not None:
+            progress = min(1.0, self.transition_elapsed / self.config.skyline_transition_duration)
+            span = self.config.width + 24.0
+            self._draw_transition_layer(
+                surface,
+                self.far_points,
+                t * 0.45,
+                palette.dim,
+                palette.glow,
+                horizon - 7,
+                span * progress,
+            )
+            self._draw_transition_layer(
+                surface,
+                self.far_points,
+                t * 0.45,
+                palette.dim,
+                palette.glow,
+                horizon - 7,
+                span * progress + self.config.width,
+            )
+            self._draw_transition_layer(
+                surface,
+                self.transition_far_points,
+                t * 0.45,
+                palette.dim,
+                palette.glow,
+                horizon - 7,
+                span * (progress - 1.0),
+            )
+            self._draw_transition_layer(
+                surface,
+                self.points,
+                t,
+                palette.green,
+                palette.glow,
+                horizon,
+                span * progress,
+            )
+            self._draw_transition_layer(
+                surface,
+                self.points,
+                t,
+                palette.green,
+                palette.glow,
+                horizon,
+                span * progress + self.config.width,
+            )
+            self._draw_transition_layer(
+                surface,
+                self.transition_points,
+                t,
+                palette.green,
+                palette.glow,
+                horizon,
+                span * (progress - 1.0),
+            )
+            return
         self._draw_layer(surface, self.far_points, t * 0.45, palette.dim, palette.glow, horizon - 7)
         self._draw_layer(surface, self.points, t, palette.green, palette.glow, horizon)
+
+    def _draw_transition_layer(
+        self,
+        surface: pygame.Surface,
+        points: list[tuple[float, float]],
+        t: float,
+        color: tuple[int, int, int],
+        glow_color: tuple[int, int, int],
+        horizon: int,
+        transition_shift: float,
+    ) -> None:
+        offset = (t * 8.0 * self.config.speed) % self.config.width
+        pygame.draw.line(surface, glow_color, (0, horizon), (self.config.width, horizon), 2)
+        pygame.draw.line(surface, color, (0, horizon), (self.config.width, horizon), 1)
+        self._draw_profile_range(
+            surface,
+            points,
+            0,
+            len(points),
+            -offset + transition_shift,
+            t * 0.7,
+            color,
+            glow_color,
+            horizon,
+        )
 
     def _draw_layer(
         self,
@@ -317,11 +426,17 @@ class CityRenderer:
     def __init__(self, config: Config) -> None:
         self.config = config
         self.buildings: list[Building] = []
+        self.transition_buildings: list[Building] | None = None
+        self.transition_seed: int | None = None
+        self.transition_elapsed = 0.0
         self.seed = -1
         self.regenerate(config.seed)
 
     def regenerate(self, seed: int) -> None:
         self.seed = seed
+        self.buildings = self._make_buildings(seed)
+
+    def _make_buildings(self, seed: int) -> list[Building]:
         rng = random.Random(seed + 202)
         buildings: list[Building] = []
         x = -17.5
@@ -346,15 +461,55 @@ class CityRenderer:
                 )
             )
             x += w + rng.uniform(0.75, 1.65)
-        self.buildings = buildings
+        return buildings
+
+    def begin_transition(self, seed: int) -> None:
+        if self.transition_buildings is not None:
+            return
+        self.transition_seed = seed
+        self.transition_buildings = self._make_buildings(seed)
+        self.transition_elapsed = 0.0
+
+    def update_transition(self, dt: float) -> None:
+        if self.transition_buildings is None:
+            return
+        self.transition_elapsed += max(0.0, dt)
+        if self.transition_elapsed < self.config.skyline_transition_duration:
+            return
+        self.buildings = self.transition_buildings
+        self.seed = self.transition_seed if self.transition_seed is not None else self.seed
+        self.transition_buildings = None
+        self.transition_seed = None
+        self.transition_elapsed = 0.0
 
     def draw(self, surface: pygame.Surface, projection: Projection, t: float, batch: LineBatch) -> None:
+        z = 21.5
+        building_sets: list[tuple[list[Building], float]] = [(self.buildings, 0.0)]
+        if self.transition_buildings is not None:
+            progress = min(1.0, self.transition_elapsed / self.config.skyline_transition_duration)
+            span = (self.config.width + 24.0) * z / self.config.focal_length + 2.0
+            building_sets = [
+                (self.buildings, span * progress),
+                (self.transition_buildings, span * (progress - 1.0)),
+            ]
+        for buildings, transition_shift in building_sets:
+            self._draw_building_set(surface, projection, t, batch, z, buildings, transition_shift)
+
+    def _draw_building_set(
+        self,
+        surface: pygame.Surface,
+        projection: Projection,
+        t: float,
+        batch: LineBatch,
+        z: float,
+        buildings: list[Building],
+        transition_shift: float,
+    ) -> None:
         palette = self.config.palette
         parallax = math.sin(t * 0.10 * self.config.speed) * 0.45
-        z = 21.5
         ground_y = 1.25
-        for building in self.buildings:
-            x0 = building.x + parallax
+        for building in buildings:
+            x0 = building.x + parallax + transition_shift
             x1 = x0 + building.w
             top_y = ground_y - building.h
             p0 = projection.project(x0, ground_y, z)
@@ -679,13 +834,11 @@ class App:
         self.config.current_palette = config.palette
 
     def randomize_seed(self) -> None:
+        if self.city.transition_buildings is not None or self.terrain.transition_points is not None:
+            return
         self.config.seed = random.randint(1, 999_999)
-        self.background.regenerate(self.config.seed)
-        self.terrain.regenerate(self.config.seed)
-        self.city.regenerate(self.config.seed)
-        self.sun.regenerate(self.config.seed)
-        self.drones.regenerate(self.config.seed)
-        self.portals.regenerate(self.config.seed)
+        self.city.begin_transition(self.config.seed)
+        self.terrain.begin_transition(self.config.seed)
 
     def start_palette_transition(self, target_index: int) -> None:
         self.palette_from = self.config.palette
@@ -731,6 +884,8 @@ class App:
 
     def update(self, dt: float) -> None:
         self.microphone.update(dt)
+        self.city.update_transition(dt)
+        self.terrain.update_transition(dt)
         features = self.microphone.features
         self.config.audio_level = features.level
         self.config.audio_low = features.low
