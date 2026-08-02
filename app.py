@@ -36,10 +36,7 @@ class App:
         internal_size = (config.width, config.height)
         self.surface = self.window if self.window.get_size() == internal_size else pygame.Surface(internal_size).convert()
         self.scene_surface = pygame.Surface((config.width, config.height)).convert()
-        self.viewport_rect = self._fit_viewport(internal_size, self.window.get_size())
-        self.presentation_surface = None
-        if self.surface is not self.window and self.viewport_rect.size != self.window.get_size():
-            self.presentation_surface = pygame.Surface(self.viewport_rect.size).convert()
+        self.viewport_rect = self.window.get_rect()
         print(
             f"Video: driver={pygame.display.get_driver()} pygame={pygame.version.ver} "
             f"SDL={pygame.version.SDL} window={self.window.get_size()} "
@@ -77,15 +74,6 @@ class App:
         self.update_ms = 0.0
         self.draw_ms = 0.0
         self.present_ms = 0.0
-
-    @staticmethod
-    def _fit_viewport(source_size: tuple[int, int], target_size: tuple[int, int]) -> pygame.Rect:
-        source_width, source_height = source_size
-        target_width, target_height = target_size
-        scale = min(target_width / source_width, target_height / source_height)
-        width = max(1, round(source_width * scale))
-        height = max(1, round(source_height * scale))
-        return pygame.Rect((target_width - width) // 2, (target_height - height) // 2, width, height)
 
     def randomize_seed(self) -> None:
         if self.city.transition_buildings is not None or self.terrain.transition_points is not None:
@@ -209,12 +197,7 @@ class App:
         self.draw_vu_meter()
         self.draw_fps()
         if self.surface is not self.window:
-            if self.presentation_surface is None:
-                pygame.transform.scale(self.surface, self.window.get_size(), self.window)
-            else:
-                pygame.transform.scale(self.surface, self.presentation_surface.get_size(), self.presentation_surface)
-                self.window.fill(palette.background)
-                self.window.blit(self.presentation_surface, self.viewport_rect)
+            pygame.transform.scale(self.surface, self.window.get_size(), self.window)
         if draw_started:
             self.draw_ms = (time.perf_counter() - draw_started) * 1000.0
         present_started = time.perf_counter() if self.config.show_fps else 0.0

@@ -64,8 +64,3 @@ class AppTests(unittest.TestCase):
             app.draw()
         finally:
             app.close()
-
-    def test_viewport_preserves_internal_aspect_ratio(self) -> None:
-        viewport = App._fit_viewport((480, 320), (640, 480))
-        self.assertEqual(viewport.size, (640, 427))
-        self.assertEqual(viewport.topleft, (0, 26))
