@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 import threading
 
 try:
@@ -133,8 +134,10 @@ class Microphone:
                 self.error = "audio input stream stopped"
             target = AudioFeatures()
 
-        response_up = min(1.0, max(0.0, dt) * 18.0)
-        response_down = min(1.0, max(0.0, dt) * 6.0)
+        # Use frame-rate independent exponential lerp. Audio attacks stay
+        # responsive, while the slower release keeps visual effects readable.
+        response_up = 1.0 - math.exp(-max(0.0, dt) * 12.0)
+        response_down = 1.0 - math.exp(-max(0.0, dt) * 2.2)
 
         def smooth(current: float, incoming: float) -> float:
             response = response_up if incoming > current else response_down

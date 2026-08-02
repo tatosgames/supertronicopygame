@@ -117,7 +117,8 @@ class Config:
     grid_spacing_z: float = 2.0
     grid_z_near: float = 1.2
     grid_z_far: float = 38.0
-    grid_scroll_rate: float = 3.8
+    # Slower base motion makes bass-driven acceleration easier to perceive.
+    grid_scroll_rate: float = 1.9
 
     mountain_count: int = 46
     city_count: int = 24

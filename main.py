@@ -164,10 +164,11 @@ class BackgroundRenderer:
         colors = (palette.dim, palette.green, palette.cyan, palette.magenta)
         for star in self.stars:
             x = int((star.x - t * star.speed * self.config.speed * 0.22) % self.config.width)
-            pulse = math.sin(t * 3.0 + star.phase) + self.config.audio_high * 0.35
+            pulse = math.sin(t * 3.0 + star.phase) + self.config.audio_high * 1.4
             color = colors[star.color_mode]
             if pulse > 0.55:
-                pygame.draw.line(surface, color, (x - 1, int(star.y)), (x + 1, int(star.y)), 1)
+                length = 1 + int(self.config.audio_high * 2.0)
+                pygame.draw.line(surface, color, (x - length, int(star.y)), (x + length, int(star.y)), 1)
             else:
                 surface.set_at((x, int(star.y)), color)
 
@@ -186,7 +187,7 @@ class GridRenderer:
 
     def draw(self, surface: pygame.Surface, projection: Projection, t: float, batch: LineBatch) -> None:
         palette = self.config.palette
-        audio_speed = 1.0 + self.config.audio_low * 0.35
+        audio_speed = 1.0 + self.config.audio_low * 0.9
         scroll = (t * self.config.grid_scroll_rate * self.config.speed * audio_speed) % self.config.grid_spacing_z
         floor_y = 1.25
         z = self.config.grid_z_near + ((self.config.grid_spacing_z - scroll) % self.config.grid_spacing_z)
@@ -366,7 +367,7 @@ class CityRenderer:
             if building.h <= 2.8:
                 color = palette.dim
             if self.config.audio_mid > 0.0:
-                color = mix_color(color, int(28 * self.config.audio_mid))
+                color = mix_color(color, int(90 * self.config.audio_mid))
             batch.add(p0, p1, color)
             batch.add(p1, p2, color)
             batch.add(p2, p3, color)
@@ -432,7 +433,7 @@ class SunRenderer:
         palette = self.config.palette
         radius = int(
             self.config.height
-            * (0.135 + math.sin(t * 1.3) * 0.006 + self.config.audio_level * 0.012)
+            * (0.135 + math.sin(t * 1.3) * 0.006 + self.config.audio_level * 0.04)
         )
         cx = int(self.config.width * self.x_ratio)
         cy = int(self.config.horizon_y - self.config.height * self.y_ratio)
@@ -578,12 +579,12 @@ class PortalRenderer:
         palette = self.config.palette
         colors = (palette.cyan, palette.magenta, palette.yellow)
         for portal in self.portals:
-            bob = math.sin(t * 0.9 + portal.phase) * (0.25 + self.config.audio_mid * 0.12)
+            bob = math.sin(t * 0.9 + portal.phase) * (0.25 + self.config.audio_mid * 0.45)
             center = projection.project(portal.x, -portal.radius + bob, portal.z)
             rim = projection.project(portal.x + portal.radius, -portal.radius + bob, portal.z)
             if center is None or rim is None:
                 continue
-            rx = max(3, int(abs(rim[0] - center[0]) * (1.0 + self.config.audio_mid * 0.18)))
+            rx = max(3, int(abs(rim[0] - center[0]) * (1.0 + self.config.audio_mid * 0.55)))
             ry = max(5, int(rx * 1.45))
             rect = pygame.Rect(center[0] - rx, center[1] - ry, rx * 2, ry * 2)
             color = colors[portal.color_mode]

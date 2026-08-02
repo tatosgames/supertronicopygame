@@ -30,7 +30,8 @@ musica o altri asset audio.
 
 ```bash
 sudo apt update
-sudo apt install -y git python3-pygame python3-numpy python3-sounddevice
+sudo apt install -y git python3-pygame python3-numpy python3-pip libportaudio2
+python3 -m pip install --break-system-packages sounddevice
 cd ~
 git clone https://github.com/tatosgames/supertronicopygame.git
 cd supertronicopygame
