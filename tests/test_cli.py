@@ -13,8 +13,8 @@ class CliTests(unittest.TestCase):
     def test_pi_profile_keeps_the_documented_budget(self) -> None:
         config = parse_args(["--profile", "pi"])
         self.assertFalse(config.glow)
+        self.assertFalse(config.vector_distortion)
         self.assertFalse(config.flicker)
-        self.assertTrue(config.vector_distortion)
         self.assertEqual((config.mountain_count, config.city_count, config.drone_count), (34, 18, 4))
         self.assertEqual((config.star_count, config.data_column_count, config.grid_z_far), (46, 10, 32.0))
 
@@ -22,6 +22,7 @@ class CliTests(unittest.TestCase):
         config = parse_args(["--profile", "minimal"])
         self.assertFalse(config.glow)
         self.assertFalse(config.scanlines)
+        self.assertFalse(config.vector_distortion)
         self.assertFalse(config.flicker)
         self.assertEqual((config.mountain_count, config.city_count, config.drone_count), (26, 14, 2))
         self.assertEqual((config.star_count, config.data_column_count, config.grid_z_far), (22, 5, 26.0))
