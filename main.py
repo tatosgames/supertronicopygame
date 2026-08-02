@@ -628,12 +628,19 @@ class SunRenderer:
 
 @dataclass
 class Drone:
+    x: float
     phase: float
     z: float
     y: float
     size: float
     color_mode: int
     shape: int
+    y_amplitude: float
+    y_speed: float
+    z_amplitude: float
+    z_speed: float
+    rotation_phase: tuple[float, float, float]
+    rotation_speed: tuple[float, float, float]
 
 
 class DroneRenderer:
@@ -644,42 +651,108 @@ class DroneRenderer:
 
     def regenerate(self, seed: int) -> None:
         rng = random.Random(seed + 303)
-        self.drones = [
-            Drone(
-                phase=rng.uniform(0.0, math.tau),
-                z=rng.uniform(6.0, 14.0),
-                y=-rng.uniform(2.2, 6.5),
-                size=rng.uniform(0.32, 0.62),
-                color_mode=rng.randint(0, 3),
-                shape=rng.randint(0, 2),
+        drones: list[Drone] = []
+        spawn_horizon = max(1, self.config.horizon_y - 2)
+        for _ in range(self.config.drone_count):
+            phase = rng.uniform(0.0, math.tau)
+            z_amplitude = 1.2 * 1.2 * rng.uniform(0.8, 1.2)
+            y_amplitude = 0.25 * 1.2 * rng.uniform(0.8, 1.2)
+            y_speed = 1.1 * 1.2 * rng.uniform(0.8, 1.2)
+            z_speed = 0.3 * 1.2 * rng.uniform(0.8, 1.2)
+
+            # Pick a screen position in the complete sky area, then convert it
+            # back to world coordinates so the initial layout is uniform on
+            # screen rather than concentrated near the projection center.
+            spawn_x = rng.uniform(0.0, self.config.width)
+            spawn_y = rng.uniform(4.0, float(spawn_horizon))
+            spawn_z = rng.uniform(6.0, 14.0)
+            focal_length = self.config.focal_length
+            world_x = ((spawn_x - self.config.width * 0.5) / focal_length) * spawn_z
+            world_y = ((spawn_y - self.config.horizon_y) / focal_length) * spawn_z
+
+            x_amplitude = 11.0
+            x = world_x - math.sin(phase) * x_amplitude
+            y = world_y - math.sin(phase) * y_amplitude
+            z = spawn_z - math.cos(phase) * z_amplitude
+            rotation_speed = tuple(
+                rng.choice((-1.0, 1.0)) * rng.uniform(0.18, 0.65) * 1.2
+                for _ in range(3)
             )
-            for _ in range(self.config.drone_count)
-        ]
+            drones.append(
+                Drone(
+                    x=x,
+                    phase=phase,
+                    z=z,
+                    y=y,
+                    size=rng.uniform(0.32, 0.62),
+                    color_mode=rng.randint(0, 3),
+                    shape=rng.randint(0, 2),
+                    y_amplitude=y_amplitude,
+                    y_speed=y_speed,
+                    z_amplitude=z_amplitude,
+                    z_speed=z_speed,
+                    rotation_phase=(
+                        rng.uniform(0.0, math.tau),
+                        rng.uniform(0.0, math.tau),
+                        rng.uniform(0.0, math.tau),
+                    ),
+                    rotation_speed=rotation_speed,
+                )
+            )
+        self.drones = drones
+
+    @staticmethod
+    def _rotate(local: tuple[float, float, float], angles: tuple[float, float, float]) -> tuple[float, float, float]:
+        x, y, z = local
+        ax, ay, az = angles
+
+        cos_x, sin_x = math.cos(ax), math.sin(ax)
+        y, z = y * cos_x - z * sin_x, y * sin_x + z * cos_x
+        cos_y, sin_y = math.cos(ay), math.sin(ay)
+        x, z = x * cos_y + z * sin_y, -x * sin_y + z * cos_y
+        cos_z, sin_z = math.cos(az), math.sin(az)
+        x, y = x * cos_z - y * sin_z, x * sin_z + y * cos_z
+        return x, y, z
+
+    def _project_local(
+        self,
+        projection: Projection,
+        origin: tuple[float, float, float],
+        local: tuple[float, float, float],
+        angles: tuple[float, float, float],
+    ) -> Point | None:
+        rx, ry, rz = self._rotate(local, angles)
+        return projection.project(origin[0] + rx, origin[1] + ry, origin[2] + rz)
 
     def draw(self, surface: pygame.Surface, projection: Projection, t: float, batch: LineBatch) -> None:
         palette = self.config.palette
         colors = (palette.red, palette.yellow, palette.cyan, palette.magenta)
         for drone in self.drones:
-            x = math.sin(t * 0.42 * self.config.speed + drone.phase) * 11.0
-            y = drone.y + math.sin(t * 1.1 + drone.phase) * 0.25
-            z = drone.z + math.cos(t * 0.3 + drone.phase) * 1.2
+            x = drone.x + math.sin(t * 0.42 * self.config.speed + drone.phase) * 11.0
+            y = drone.y + math.sin(t * drone.y_speed + drone.phase) * drone.y_amplitude
+            z = drone.z + math.cos(t * drone.z_speed + drone.phase) * drone.z_amplitude
             s = drone.size
             color = colors[drone.color_mode]
+            angles = tuple(
+                phase + t * speed * self.config.speed
+                for phase, speed in zip(drone.rotation_phase, drone.rotation_speed)
+            )
+            origin = (x, y, z)
             if drone.shape == 1:
-                top = projection.project(x, y - s * 1.6, z)
-                left = projection.project(x - s * 1.5, y, z)
-                right = projection.project(x + s * 1.5, y, z)
-                bottom = projection.project(x, y + s * 1.2, z)
-                back = projection.project(x + s * 0.7, y - s * 0.2, z + s * 1.3)
+                top = self._project_local(projection, origin, (0.0, -s * 1.6, 0.0), angles)
+                left = self._project_local(projection, origin, (-s * 1.5, 0.0, 0.0), angles)
+                right = self._project_local(projection, origin, (s * 1.5, 0.0, 0.0), angles)
+                bottom = self._project_local(projection, origin, (0.0, s * 1.2, 0.0), angles)
+                back = self._project_local(projection, origin, (s * 0.7, -s * 0.2, s * 1.3), angles)
                 for a, b in ((top, left), (left, bottom), (bottom, right), (right, top), (left, back), (right, back), (bottom, back)):
                     batch.add(a, b, color)
                 continue
             if drone.shape == 2:
                 center = projection.project(x, y, z)
-                wing_l = projection.project(x - s * 2.0, y, z)
-                wing_r = projection.project(x + s * 2.0, y, z)
-                nose = projection.project(x, y - s * 0.9, z - s * 0.3)
-                tail = projection.project(x, y + s * 0.7, z + s * 0.5)
+                wing_l = self._project_local(projection, origin, (-s * 2.0, 0.0, 0.0), angles)
+                wing_r = self._project_local(projection, origin, (s * 2.0, 0.0, 0.0), angles)
+                nose = self._project_local(projection, origin, (0.0, -s * 0.9, -s * 0.3), angles)
+                tail = self._project_local(projection, origin, (0.0, s * 0.7, s * 0.5), angles)
                 batch.add(wing_l, nose, color)
                 batch.add(nose, wing_r, color)
                 batch.add(wing_r, tail, color)
@@ -688,14 +761,14 @@ class DroneRenderer:
                     pygame.draw.circle(surface, color, center, max(2, int(s * 6)), 1)
                 continue
             pts = [
-                projection.project(x - s, y - s, z),
-                projection.project(x + s, y - s, z),
-                projection.project(x + s, y + s, z),
-                projection.project(x - s, y + s, z),
-                projection.project(x - s * 0.45, y - s * 1.45, z + s),
-                projection.project(x + s * 1.55, y - s * 1.45, z + s),
-                projection.project(x + s * 1.55, y + s * 0.55, z + s),
-                projection.project(x - s * 0.45, y + s * 0.55, z + s),
+                self._project_local(projection, origin, (-s, -s, 0.0), angles),
+                self._project_local(projection, origin, (s, -s, 0.0), angles),
+                self._project_local(projection, origin, (s, s, 0.0), angles),
+                self._project_local(projection, origin, (-s, s, 0.0), angles),
+                self._project_local(projection, origin, (-s * 0.45, -s * 1.45, s), angles),
+                self._project_local(projection, origin, (s * 1.55, -s * 1.45, s), angles),
+                self._project_local(projection, origin, (s * 1.55, s * 0.55, s), angles),
+                self._project_local(projection, origin, (-s * 0.45, s * 0.55, s), angles),
             ]
             edges = ((0, 1), (1, 2), (2, 3), (3, 0), (4, 5), (5, 6), (6, 7), (7, 4), (0, 4), (1, 5), (2, 6), (3, 7))
             for a, b in edges:
