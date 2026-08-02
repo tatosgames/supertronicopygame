@@ -23,7 +23,15 @@ class App:
         pygame.init()
         pygame.display.set_caption("Retro Tron Wireframe Visualizer")
         flags = pygame.FULLSCREEN if config.fullscreen else 0
-        self.window = pygame.display.set_mode((config.width * config.scale, config.height * config.scale), flags)
+        display_size = (config.width * config.scale, config.height * config.scale)
+        if config.fullscreen:
+            try:
+                desktop_sizes = pygame.display.get_desktop_sizes()
+            except pygame.error:
+                desktop_sizes = []
+            if desktop_sizes and all(size > 0 for size in desktop_sizes[0]):
+                display_size = desktop_sizes[0]
+        self.window = pygame.display.set_mode(display_size, flags)
         pygame.mouse.set_visible(False)
         internal_size = (config.width, config.height)
         self.surface = self.window if self.window.get_size() == internal_size else pygame.Surface(internal_size).convert()
