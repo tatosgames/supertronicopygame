@@ -88,6 +88,7 @@ class Config:
     seed: int = 1979
     fullscreen: bool = False
     profile: str = "high"
+    video_driver: str = "auto"
 
     speed: float = 1.0
     min_speed: float = 0.15

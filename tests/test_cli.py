@@ -7,6 +7,10 @@ class CliTests(unittest.TestCase):
     def test_scanlines_are_disabled_by_default(self) -> None:
         self.assertFalse(parse_args([]).scanlines)
 
+    def test_video_driver_defaults_to_auto_and_can_be_selected(self) -> None:
+        self.assertEqual(parse_args([]).video_driver, "auto")
+        self.assertEqual(parse_args(["--video-driver", "kmsdrm"]).video_driver, "kmsdrm")
+
     def test_clamps_display_arguments_and_disables_optional_features(self) -> None:
         config = parse_args(["--width", "1", "--height", "1", "--scale", "0", "--fps", "999", "--no-auto", "--no-audio"])
         self.assertEqual((config.width, config.height, config.scale, config.fps), (160, 120, 1, 120))

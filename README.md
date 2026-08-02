@@ -118,6 +118,10 @@ Esempio di avvio manuale:
 python3 main.py --profile pi --width 480 --height 320 --scale 1 --fullscreen
 ```
 
+Per selezionare esplicitamente il backend video SDL si può usare `--video-driver`
+con `auto`, `x11`, `kmsdrm`, `wayland` oppure `dummy`. `kmsdrm` richiede un avvio
+da console senza X11 e accesso al dispositivo DRM.
+
 ## Controlli
 
 - `ESC`: chiude l’applicazione;

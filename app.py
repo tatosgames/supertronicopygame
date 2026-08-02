@@ -1,4 +1,5 @@
 import random
+import os
 import time
 
 import pygame
@@ -17,6 +18,8 @@ class App:
 
     def __init__(self, config: Config) -> None:
         self.config = config
+        if config.video_driver != "auto":
+            os.environ["SDL_VIDEODRIVER"] = config.video_driver
         pygame.init()
         pygame.display.set_caption("Retro Tron Wireframe Visualizer")
         flags = pygame.FULLSCREEN if config.fullscreen else 0
@@ -153,6 +156,8 @@ class App:
         self.surface.blit(self.font.render(label, False, self.config.palette.text), (5, 5))
 
     def draw_vu_meter(self) -> None:
+        if not self.config.show_fps:
+            return
         palette = self.config.palette
         left, right, y = 6, self.config.width - 6, self.config.height - 7
         pygame.draw.line(self.surface, palette.dim, (left, y), (right, y), 2)
@@ -175,7 +180,7 @@ class App:
         self.grid.draw(scene, self.projection, self.elapsed, self.batch)
         self.drones.draw(scene, self.projection, self.elapsed, self.batch)
         self.batch.draw(scene, self.config.glow, palette.glow, self.config.audio_onset)
-        self.portals.draw(scene, self.projection, self.elapsed)
+        # self.portals.draw(scene, self.projection, self.elapsed)
         self.fx.draw(scene, self.elapsed)
         if distortion_active:
             self.vector_distortion.draw(scene, self.surface, palette.background, self.elapsed, self.config.audio_onset)

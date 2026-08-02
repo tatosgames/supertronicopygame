@@ -11,6 +11,7 @@ def parse_args(argv: list[str]) -> Config:
     parser.add_argument("--fps", type=int, default=30, help="Frame-rate cap.")
     parser.add_argument("--seed", type=int, default=1979, help="Procedural seed.")
     parser.add_argument("--fullscreen", action="store_true", help="Launch fullscreen.")
+    parser.add_argument("--video-driver", choices=("auto", "x11", "kmsdrm", "wayland", "dummy"), default="auto", help="SDL video backend.")
     parser.add_argument("--no-auto", action="store_true", help="Disable automatic seed and palette variation.")
     parser.add_argument("--no-audio", action="store_true", help="Disable microphone capture and audio reactions.")
     parser.add_argument("--profile", choices=("high", "pi", "minimal"), default="high", help="Visual/performance profile. Use 'pi' for Raspberry Pi 3.")
@@ -19,6 +20,7 @@ def parse_args(argv: list[str]) -> Config:
         width=max(160, args.width), height=max(120, args.height), scale=max(1, args.scale),
         fps=max(15, min(120, args.fps)), seed=args.seed, fullscreen=args.fullscreen,
         profile=args.profile, auto_variation=not args.no_auto, audio_enabled=not args.no_audio,
+        video_driver=args.video_driver,
     )
     apply_performance_profile(config)
     return config
