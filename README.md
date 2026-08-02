@@ -1,14 +1,32 @@
 # Retro Tron Wireframe Visualizer
 
-Python/Pygame visualizer for Raspberry Pi.
+Visualizzatore grafico procedurale in Python/Pygame pensato principalmente per un
+Raspberry Pi 3 con Raspberry Pi OS 64-bit e un pannello HDMI 480×320.
 
-## Repo
+Il programma genera in tempo reale un paesaggio wireframe in stile retro-Tron:
+griglia prospettica, montagne, città, sole, droni, portali, stelle, scanline e
+variazioni di palette. Non è un gioco completo: non ci sono personaggio,
+collisioni, livelli, rete o salvataggi.
 
-```bash
-https://github.com/tatosgames/supertronicopygame.git
-```
+## Hardware e video
 
-## Setup
+Configurazione principale:
+
+- Raspberry Pi 3 o modello equivalente;
+- Raspberry Pi OS 64-bit, testato/documentato per Bookworm o Trixie;
+- pannello HDMI fisso da 480×320 pixel.
+
+L’applicazione renderizza internamente a 480×320. Gli script di avvio usano:
+
+- fullscreen;
+- `scale=1`;
+- 30 FPS;
+- profilo prestazionale `pi`.
+
+Il renderer è procedurale: il repository non contiene immagini, sprite, font,
+musica o altri asset audio.
+
+## Installazione
 
 ```bash
 sudo apt update
@@ -18,15 +36,52 @@ git clone https://github.com/tatosgames/supertronicopygame.git
 cd supertronicopygame
 ```
 
-## GPIO TFT
-
-Use this path only for the GPIO-connected Cytron XPT2046 TFT, not HDMI.
+Per avviare direttamente il target HDMI:
 
 ```bash
+cd ~/supertronicopygame
+bash scripts/run-display.sh --target hdmi
+```
+
+Per eseguire anche l’installazione del servizio di avvio automatico:
+
+```bash
+cd ~/supertronicopygame
+bash scripts/install-display.sh --target hdmi
+```
+
+L’installer crea e avvia `tronico-screen.service`. Il servizio usa X11 (`DISPLAY=:0`)
+e riavvia l’applicazione solo se termina in errore o in modo anomalo; la chiusura
+con `ESC` resta chiusa. Stato e log sono disponibili con:
+
+```bash
+systemctl status tronico-screen.service
+journalctl -u tronico-screen.service -f
+```
+
+Gli argomenti dell’applicazione possono essere passati dopo `--`. Per esempio:
+
+```bash
+bash scripts/run-display.sh --target hdmi -- --no-auto
+```
+
+Una volta aperta la finestra, premere `F` per mostrare gli FPS e le informazioni
+di debug.
+
+Nota: `run-display.sh` abilita per impostazione predefinita un controllo degli
+aggiornamenti verso `origin/main`. Usare `--no-update` per disabilitarlo.
+
+## Target HDMI e TFT GPIO
+
+Il target HDMI è quello principale del progetto. Sono mantenuti anche gli script
+per un vecchio/alternativo pannello TFT collegato via GPIO, basato sul controller
+Cytron XPT2046:
+
+```text
 https://github.com/CytronTechnologies/xpt2046-LCD-Driver-for-Raspberry-Pi
 ```
 
-Install and verify that panel first, then run:
+Dopo aver installato e verificato separatamente il driver del pannello:
 
 ```bash
 cd ~/supertronicopygame
@@ -34,61 +89,87 @@ bash scripts/install-display.sh --target gpio
 bash scripts/run-display.sh --target gpio
 ```
 
-The installer creates the `tronico-screen.service` system service and starts it.
-
-The old wrappers still work:
+Gli wrapper equivalenti sono:
 
 ```bash
-cd ~/supertronicopygame
-bash scripts/rpi.sh --kiosk
-```
-
-Auto-start on boot is installed by `scripts/install-display.sh --target gpio`.
-
-## HDMI 480x320
-
-Use this path for the fixed 480x320 HDMI panel on Raspberry Pi OS 64-bit (Bookworm or Trixie).
-
-```bash
-cd ~/supertronicopygame
-bash scripts/install-display.sh --target hdmi
-bash scripts/run-display.sh --target hdmi
-```
-
-The installer creates the `tronico-screen.service` system service and starts it.
-
-The old wrapper still works:
-
-```bash
-cd ~/supertronicopygame
 bash scripts/hdmi.sh
+bash scripts/rpi.sh
 ```
 
-## Utilities
+Attualmente `--target hdmi` e `--target gpio` sono principalmente etichette di
+avvio e descrizione del servizio: entrambi eseguono lo stesso `main.py` con lo
+stesso renderer e con i parametri video 480×320. La configurazione specifica del
+driver TFT non è implementata in questo repository.
 
-Update the repo:
+## Profili prestazionali
+
+`main.py` supporta tre profili:
+
+- `high`: qualità completa, profilo predefinito per esecuzioni generiche;
+- `pi`: riduce elementi e costi degli effetti, usato dagli script hardware e
+  adatto al Raspberry Pi 3;
+- `minimal`: disabilita ulteriori effetti e riduce il numero di elementi se il
+  display è troppo lento.
+
+Esempio di avvio manuale:
+
+```bash
+python3 main.py --profile pi --width 480 --height 320 --scale 1 --fullscreen
+```
+
+## Controlli
+
+- `ESC`: chiude l’applicazione;
+- `F`: mostra/nasconde FPS e informazioni di debug;
+- `S`: attiva/disattiva le scanline;
+- `G`: attiva/disattiva il glow simulato;
+- `C`: cambia palette;
+- `V`: attiva/disattiva la variazione automatica;
+- `SPACE`: rigenera terreno, città e droni;
+- `UP` / `DOWN`: aumenta o riduce la velocità;
+- `LEFT` / `RIGHT`: modifica l’orizzonte.
+
+## Microfono USB e audio
+
+Il microfono USB è previsto come periferica hardware per una futura interazione
+audio, ma attualmente non viene letto dal programma. Pygame non implementa in
+questo progetto una cattura dal microfono; per una futura integrazione si può
+usare ALSA per i test del dispositivo e `sounddevice` per leggere il livello
+audio in Python.
+
+Test rapido su Raspberry Pi OS:
+
+```bash
+sudo apt install -y alsa-utils
+arecord -l
+arecord -f S16_LE -r 44100 -c 1 -d 5 test-microfono.wav
+aplay test-microfono.wav
+```
+
+Il servizio corrente imposta `SDL_AUDIODRIVER=dummy`: il visualizzatore non
+produce audio tramite il mixer di Pygame. Questa impostazione non equivale a un
+supporto per il microfono e dovrà essere rivalutata quando l’input audio verrà
+implementato.
+
+## Aggiornamento e diagnostica
+
+Per aggiornare il repository:
 
 ```bash
 cd ~/supertronicopygame
 git pull --ff-only origin main
 ```
 
-Boot tuning: see [docs/boot.md](docs/boot.md)
+Per controllare il boot e la catena di avvio del display, vedere
+[docs/boot.md](docs/boot.md):
 
-## Controls
+```bash
+bash scripts/boot-check.sh
+bash scripts/boot-check.sh --full
+```
 
-- `ESC`: quit
-- `F`: toggle FPS/debug text
-- `S`: toggle scanlines
-- `G`: toggle fake glow
-- `C`: change palette
-- `V`: toggle automatic variation
-- `SPACE`: randomize terrain, city, and drones
-- `UP` / `DOWN`: change speed
-- `LEFT` / `RIGHT`: adjust horizon
+Le ottimizzazioni di boot sono opzionali e possono modificare servizi di sistema:
 
-## Notes
-
-- Use `--profile pi` on Raspberry Pi 3 or similar hardware
-- Use `--profile minimal` only if the display is too slow
-- The visuals are procedural, so there are no image or audio assets
+```bash
+sudo bash scripts/boot-speedup.sh
+```

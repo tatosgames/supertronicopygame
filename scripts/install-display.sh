@@ -114,7 +114,7 @@ Environment=SDL_VIDEODRIVER=x11
 Environment=SDL_AUDIODRIVER=dummy
 Environment=PYTHONUNBUFFERED=1
 ExecStart=/bin/bash $ROOT_DIR/scripts/run-display.sh --target $TARGET_EXEC_MODE --run-app
-Restart=always
+Restart=on-failure
 RestartSec=3
 
 [Install]
