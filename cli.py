@@ -31,7 +31,7 @@ def apply_performance_profile(config: Config) -> None:
         config.glow = False
         config.scanlines = False
         config.vignette = False
-        config.vector_distortion = False
+        config.vector_distortion = True
         config.flicker = False
         config.mountain_count = 34
         config.city_count = 18

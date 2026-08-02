@@ -21,7 +21,7 @@ class CliTests(unittest.TestCase):
         config = parse_args(["--profile", "pi"])
         self.assertFalse(config.glow)
         self.assertFalse(config.vignette)
-        self.assertFalse(config.vector_distortion)
+        self.assertTrue(config.vector_distortion)
         self.assertFalse(config.flicker)
         self.assertEqual((config.mountain_count, config.city_count, config.drone_count), (34, 18, 4))
         self.assertEqual((config.star_count, config.data_column_count, config.grid_z_far), (46, 10, 32.0))
