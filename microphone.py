@@ -2,26 +2,26 @@
 
 from __future__ import annotations
 
-import math
 import threading
 
 try:
-    import numpy as np
     import sounddevice as sd
 except ImportError:  # The visualizer can still run without microphone support.
-    np = None
     sd = None
+
+from audio_features import AUDIO_FEATURES_AVAILABLE, AudioFeatureProcessor, AudioFeatures
 
 
 class Microphone:
     """Capture a smoothed mono RMS level from the first suitable USB input."""
 
-    def __init__(self, samplerate: int = 44100, blocksize: int = 1024) -> None:
-        self.level = 0.0
+    def __init__(self, samplerate: int = 44100, blocksize: int = 1024, enabled: bool = True) -> None:
+        self.features = AudioFeatures()
         self.available = False
         self.device_name = ""
         self.error: str | None = None
         self._target_level = 0.0
+        self._pending_features = AudioFeatures()
         self._lock = threading.Lock()
         self._stream = None
         self._blocksize = blocksize
@@ -29,8 +29,12 @@ class Microphone:
         self._worker: threading.Thread | None = None
         self._stream_finished = False
         self._stopping = False
+        self._processor: AudioFeatureProcessor | None = None
 
-        if np is None or sd is None:
+        if not enabled:
+            return
+
+        if not AUDIO_FEATURES_AVAILABLE or sd is None:
             self.error = "numpy or sounddevice is not installed"
             return
 
@@ -41,6 +45,7 @@ class Microphone:
                 return
 
             self.device_name = str(sd.query_devices(device)["name"])
+            self._processor = AudioFeatureProcessor(samplerate, blocksize)
             self._stream = sd.InputStream(
                 device=device,
                 channels=1,
@@ -78,7 +83,7 @@ class Microphone:
         return candidates[0][1]
 
     def _capture_loop(self) -> None:
-        if np is None or self._stream is None:
+        if self._processor is None or self._stream is None:
             return
 
         try:
@@ -88,12 +93,9 @@ class Microphone:
                     with self._lock:
                         self.error = self.error or "audio input overflow"
 
-                samples = indata[:, 0]
-                rms = float(np.sqrt(np.mean(np.square(samples), dtype=np.float64)))
-                dbfs = 20.0 * math.log10(max(rms, 1e-7))
-                target = min(1.0, max(0.0, (dbfs + 60.0) / 60.0))
+                features = self._processor.process(indata[:, 0])
                 with self._lock:
-                    self._target_level = target
+                    self._pending_features = features
         except Exception as exc:
             if not self._stopping:
                 with self._lock:
@@ -105,6 +107,7 @@ class Microphone:
             return
         self._stream_finished = False
         self._stop_event.clear()
+        self._pending_features = AudioFeatures(available=True)
         try:
             self._stream.start()
             self._stopping = False
@@ -121,17 +124,31 @@ class Microphone:
 
     def update(self, dt: float) -> None:
         with self._lock:
-            target = self._target_level
+            target = self._pending_features
             stream_finished = self._stream_finished
 
         if stream_finished and not self._stopping:
             self.available = False
             if self.error is None:
                 self.error = "audio input stream stopped"
-            target = 0.0
+            target = AudioFeatures()
 
-        response = min(1.0, max(0.0, dt) * (18.0 if target > self.level else 6.0))
-        self.level += (target - self.level) * response
+        response_up = min(1.0, max(0.0, dt) * 18.0)
+        response_down = min(1.0, max(0.0, dt) * 6.0)
+
+        def smooth(current: float, incoming: float) -> float:
+            response = response_up if incoming > current else response_down
+            return current + (incoming - current) * response
+
+        onset = max(self.features.onset_pulse - max(0.0, dt) / 0.4, target.onset_pulse)
+        self.features = AudioFeatures(
+            level=smooth(self.features.level, target.level),
+            low=smooth(self.features.low, target.low),
+            mid=smooth(self.features.mid, target.mid),
+            high=smooth(self.features.high, target.high),
+            onset_pulse=onset,
+            available=self.available,
+        )
 
     def stop(self) -> None:
         if self._stream is None:

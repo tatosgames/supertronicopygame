@@ -105,6 +105,12 @@ class Config:
     show_fps: bool = False
     auto_variation: bool = True
     palette_index: int = 0
+    audio_enabled: bool = True
+    audio_level: float = 0.0
+    audio_low: float = 0.0
+    audio_mid: float = 0.0
+    audio_high: float = 0.0
+    audio_onset: float = 0.0
 
     grid_extent_x: float = 22.0
     grid_spacing_x: float = 2.0

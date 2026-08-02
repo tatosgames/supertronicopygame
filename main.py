@@ -91,11 +91,18 @@ class LineBatch:
         if a is not None and b is not None:
             self.lines.append((a, b, color, glow))
 
-    def draw(self, surface: pygame.Surface, glow: bool, glow_color: tuple[int, int, int]) -> None:
+    def draw(
+        self,
+        surface: pygame.Surface,
+        glow: bool,
+        glow_color: tuple[int, int, int],
+        audio_pulse: float = 0.0,
+    ) -> None:
         if glow:
+            glow_width = 3 + int(audio_pulse * 2.0)
             for a, b, _, line_glow in self.lines:
                 if line_glow:
-                    pygame.draw.line(surface, glow_color, a, b, 3)
+                    pygame.draw.line(surface, glow_color, a, b, glow_width)
         for a, b, color, _ in self.lines:
             pygame.draw.line(surface, color, a, b, 1)
 
@@ -157,7 +164,7 @@ class BackgroundRenderer:
         colors = (palette.dim, palette.green, palette.cyan, palette.magenta)
         for star in self.stars:
             x = int((star.x - t * star.speed * self.config.speed * 0.22) % self.config.width)
-            pulse = math.sin(t * 3.0 + star.phase)
+            pulse = math.sin(t * 3.0 + star.phase) + self.config.audio_high * 0.35
             color = colors[star.color_mode]
             if pulse > 0.55:
                 pygame.draw.line(surface, color, (x - 1, int(star.y)), (x + 1, int(star.y)), 1)
@@ -179,7 +186,8 @@ class GridRenderer:
 
     def draw(self, surface: pygame.Surface, projection: Projection, t: float, batch: LineBatch) -> None:
         palette = self.config.palette
-        scroll = (t * self.config.grid_scroll_rate * self.config.speed) % self.config.grid_spacing_z
+        audio_speed = 1.0 + self.config.audio_low * 0.35
+        scroll = (t * self.config.grid_scroll_rate * self.config.speed * audio_speed) % self.config.grid_spacing_z
         floor_y = 1.25
         z = self.config.grid_z_near + ((self.config.grid_spacing_z - scroll) % self.config.grid_spacing_z)
         if z <= self.config.grid_z_near + 0.01:
@@ -357,6 +365,8 @@ class CityRenderer:
             color = accent_colors[building.color_mode] if building.h > 5.8 else palette.green
             if building.h <= 2.8:
                 color = palette.dim
+            if self.config.audio_mid > 0.0:
+                color = mix_color(color, int(28 * self.config.audio_mid))
             batch.add(p0, p1, color)
             batch.add(p1, p2, color)
             batch.add(p2, p3, color)
@@ -420,12 +430,15 @@ class SunRenderer:
 
     def draw(self, surface: pygame.Surface, t: float) -> None:
         palette = self.config.palette
-        radius = int(self.config.height * (0.135 + math.sin(t * 1.3) * 0.006))
+        radius = int(
+            self.config.height
+            * (0.135 + math.sin(t * 1.3) * 0.006 + self.config.audio_level * 0.012)
+        )
         cx = int(self.config.width * self.x_ratio)
         cy = int(self.config.horizon_y - self.config.height * self.y_ratio)
         color = blend_color(palette.red, palette.yellow, 0.25 + 0.25 * math.sin(t * 0.45))
         if self.config.glow:
-            pygame.draw.circle(surface, palette.glow, (cx, cy), radius + 2, 2)
+            pygame.draw.circle(surface, palette.glow, (cx, cy), radius + 2 + int(self.config.audio_onset * 3), 2)
         if self.style == 0:
             self._draw_striped_disc(surface, cx, cy, radius, color, 7)
             pygame.draw.circle(surface, color, (cx, cy), radius, 1)
@@ -565,12 +578,12 @@ class PortalRenderer:
         palette = self.config.palette
         colors = (palette.cyan, palette.magenta, palette.yellow)
         for portal in self.portals:
-            bob = math.sin(t * 0.9 + portal.phase) * 0.25
+            bob = math.sin(t * 0.9 + portal.phase) * (0.25 + self.config.audio_mid * 0.12)
             center = projection.project(portal.x, -portal.radius + bob, portal.z)
             rim = projection.project(portal.x + portal.radius, -portal.radius + bob, portal.z)
             if center is None or rim is None:
                 continue
-            rx = max(3, abs(rim[0] - center[0]))
+            rx = max(3, int(abs(rim[0] - center[0]) * (1.0 + self.config.audio_mid * 0.18)))
             ry = max(5, int(rx * 1.45))
             rect = pygame.Rect(center[0] - rx, center[1] - ry, rx * 2, ry * 2)
             color = colors[portal.color_mode]
@@ -649,11 +662,11 @@ class App:
         self.drones = DroneRenderer(config)
         self.portals = PortalRenderer(config)
         self.fx = FXRenderer(config)
-        self.microphone = Microphone()
+        self.microphone = Microphone(enabled=config.audio_enabled)
         self.microphone.start()
-        if self.microphone.available:
+        if config.audio_enabled and self.microphone.available:
             print(f"Microphone input: {self.microphone.device_name}", flush=True)
-        elif self.microphone.error:
+        elif config.audio_enabled and self.microphone.error:
             print(f"Microphone unavailable: {self.microphone.error}", flush=True)
         self.running = True
         self.elapsed = 0.0
@@ -717,6 +730,12 @@ class App:
 
     def update(self, dt: float) -> None:
         self.microphone.update(dt)
+        features = self.microphone.features
+        self.config.audio_level = features.level
+        self.config.audio_low = features.low
+        self.config.audio_mid = features.mid
+        self.config.audio_high = features.high
+        self.config.audio_onset = features.onset_pulse
         self.update_palette_transition()
         if not self.config.auto_variation:
             return
@@ -742,7 +761,7 @@ class App:
         y = self.config.height - 7
         pygame.draw.line(self.surface, palette.dim, (left, y), (right, y), 2)
 
-        active_right = left + int((right - left) * self.microphone.level)
+        active_right = left + int((right - left) * self.microphone.features.level)
         if active_right > left:
             pygame.draw.line(self.surface, palette.cyan, (left, y), (active_right, y), 2)
 
@@ -758,7 +777,7 @@ class App:
         self.city.draw(self.surface, self.projection, self.elapsed, batch)
         self.grid.draw(self.surface, self.projection, self.elapsed, batch)
         self.drones.draw(self.surface, self.projection, self.elapsed, batch)
-        batch.draw(self.surface, self.config.glow, palette.glow)
+        batch.draw(self.surface, self.config.glow, palette.glow, self.config.audio_onset)
         self.portals.draw(self.surface, self.projection, self.elapsed)
         self.fx.draw(self.surface, self.elapsed)
         self.draw_vu_meter()
@@ -789,6 +808,7 @@ def parse_args(argv: list[str]) -> Config:
     parser.add_argument("--seed", type=int, default=1979, help="Procedural seed.")
     parser.add_argument("--fullscreen", action="store_true", help="Launch fullscreen.")
     parser.add_argument("--no-auto", action="store_true", help="Disable automatic seed and palette variation.")
+    parser.add_argument("--no-audio", action="store_true", help="Disable microphone capture and audio reactions.")
     parser.add_argument(
         "--profile",
         choices=("high", "pi", "minimal"),
@@ -810,6 +830,7 @@ def parse_args(argv: list[str]) -> Config:
         fullscreen=args.fullscreen,
         profile=args.profile,
         auto_variation=not args.no_auto,
+        audio_enabled=not args.no_audio,
     )
     apply_performance_profile(config)
     return config

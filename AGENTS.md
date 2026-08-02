@@ -58,12 +58,19 @@ work that is not scaled or bounded.
 
 ## Audio and USB microphone status
 
-The visualizer captures a smoothed mono RMS level from the first suitable USB
-input using `sounddevice`/PortAudio and `numpy`. The level is rendered as a thin
-horizontal VU line at the bottom of the internal 480x320 surface. ALSA commands
-such as `arecord -l` and a short `arecord`/`aplay` round trip can verify the
-hardware independently. The microphone is optional: missing dependencies or a
-missing device must leave the visualizer running with the meter at zero.
+The visualizer captures a smoothed mono signal from the first suitable USB input
+using `sounddevice`/PortAudio and `numpy`. The audio worker exposes global level,
+low/mid/high FFT bands, a noise-gated signal and a short onset pulse. The level
+is rendered as a thin horizontal VU line at the bottom of the internal 480x320
+surface. ALSA commands such as `arecord -l` and a short `arecord`/`aplay` round
+trip can verify the hardware independently. The microphone is optional: missing
+dependencies or a missing device must leave the visualizer running with audio
+reactions disabled.
+
+`--no-audio` is the supported diagnostic mode. Audio analysis stays in the
+worker thread; Pygame reads one feature snapshot per frame and applies bounded
+visual modulation. Do not call Pygame from the audio worker or add unbounded
+per-frame geometry in response to sound.
 
 The systemd service sets `SDL_AUDIODRIVER=dummy`, so the current application does
 not produce audio through Pygame. Microphone capture uses PortAudio/ALSA

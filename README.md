@@ -129,6 +129,25 @@ python3 main.py --profile pi --width 480 --height 320 --scale 1 --fullscreen
 - `UP` / `DOWN`: aumenta o riduce la velocità;
 - `LEFT` / `RIGHT`: modifica l’orizzonte.
 
+## Reattività audio
+
+Quando il microfono USB è disponibile, il visualizzatore analizza il volume e
+tre bande di frequenza con FFT:
+
+- bassi: aumentano leggermente la velocità della griglia;
+- medi: fanno pulsare città e portali;
+- alti: aumentano la risposta delle stelle e del glow;
+- onset sonori: producono un impulso breve sul glow;
+- noise gate: evita reazioni al rumore ambientale più debole.
+
+Le reazioni sono smussate e limitate per mantenere leggibile la scena e il frame
+rate del Raspberry Pi 3. Per eseguire il visualizzatore senza accedere al
+microfono:
+
+```bash
+python3 main.py --profile pi --width 480 --height 320 --scale 1 --fullscreen --no-audio
+```
+
 ## Microfono USB e audio
 
 Il microfono USB viene rilevato automaticamente all’avvio e il suo livello RMS
