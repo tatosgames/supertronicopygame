@@ -30,7 +30,7 @@ musica o altri asset audio.
 
 ```bash
 sudo apt update
-sudo apt install -y git python3-pygame
+sudo apt install -y git python3-pygame python3-numpy python3-sounddevice
 cd ~
 git clone https://github.com/tatosgames/supertronicopygame.git
 cd supertronicopygame
@@ -131,11 +131,11 @@ python3 main.py --profile pi --width 480 --height 320 --scale 1 --fullscreen
 
 ## Microfono USB e audio
 
-Il microfono USB è previsto come periferica hardware per una futura interazione
-audio, ma attualmente non viene letto dal programma. Pygame non implementa in
-questo progetto una cattura dal microfono; per una futura integrazione si può
-usare ALSA per i test del dispositivo e `sounddevice` per leggere il livello
-audio in Python.
+Il microfono USB viene rilevato automaticamente all’avvio e il suo livello RMS
+smussato viene mostrato come una linea VU nella parte inferiore dello schermo.
+La cattura usa `sounddevice`/PortAudio e non il mixer di Pygame. Il microfono non
+è obbligatorio: se non viene trovato, il visualizzatore parte comunque e il meter
+resta a zero.
 
 Test rapido su Raspberry Pi OS:
 
@@ -147,9 +147,8 @@ aplay test-microfono.wav
 ```
 
 Il servizio corrente imposta `SDL_AUDIODRIVER=dummy`: il visualizzatore non
-produce audio tramite il mixer di Pygame. Questa impostazione non equivale a un
-supporto per il microfono e dovrà essere rivalutata quando l’input audio verrà
-implementato.
+produce audio tramite il mixer di Pygame. La cattura del microfono continua a
+funzionare separatamente tramite PortAudio/ALSA.
 
 ## Aggiornamento e diagnostica
 

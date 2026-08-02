@@ -58,15 +58,16 @@ work that is not scaled or bounded.
 
 ## Audio and USB microphone status
 
-The repository currently has no microphone capture or audio-reactive behavior.
-The USB microphone is an intended future input device only. ALSA commands such
-as `arecord -l` and a short `arecord`/`aplay` round trip can verify it on the
-Raspberry Pi. A future Python capture implementation should use an input-audio
-library such as `sounddevice`, not assume that `pygame.mixer` records input.
+The visualizer captures a smoothed mono RMS level from the first suitable USB
+input using `sounddevice`/PortAudio and `numpy`. The level is rendered as a thin
+horizontal VU line at the bottom of the internal 480x320 surface. ALSA commands
+such as `arecord -l` and a short `arecord`/`aplay` round trip can verify the
+hardware independently. The microphone is optional: missing dependencies or a
+missing device must leave the visualizer running with the meter at zero.
 
 The systemd service sets `SDL_AUDIODRIVER=dummy`, so the current application does
-not produce audio through Pygame. Do not document microphone support as working
-until code, dependencies, service behavior and a Raspberry Pi test are added.
+not produce audio through Pygame. Microphone capture uses PortAudio/ALSA
+separately and must not be implemented through `pygame.mixer`.
 
 ## Maintenance rules
 

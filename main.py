@@ -7,6 +7,7 @@ from dataclasses import dataclass
 import pygame
 
 from config import Config, Palette
+from microphone import Microphone
 
 
 Point = tuple[int, int]
@@ -648,6 +649,12 @@ class App:
         self.drones = DroneRenderer(config)
         self.portals = PortalRenderer(config)
         self.fx = FXRenderer(config)
+        self.microphone = Microphone()
+        self.microphone.start()
+        if self.microphone.available:
+            print(f"Microphone input: {self.microphone.device_name}", flush=True)
+        elif self.microphone.error:
+            print(f"Microphone unavailable: {self.microphone.error}", flush=True)
         self.running = True
         self.elapsed = 0.0
         self.next_seed_change = config.auto_seed_interval
@@ -708,7 +715,8 @@ class App:
             elif event.key == pygame.K_RIGHT:
                 self.config.horizon_ratio = min(self.config.horizon_max, self.config.horizon_ratio + 0.01)
 
-    def update(self) -> None:
+    def update(self, dt: float) -> None:
+        self.microphone.update(dt)
         self.update_palette_transition()
         if not self.config.auto_variation:
             return
@@ -727,6 +735,17 @@ class App:
         text = self.font.render(label, False, self.config.palette.text)
         self.surface.blit(text, (5, 5))
 
+    def draw_vu_meter(self) -> None:
+        palette = self.config.palette
+        left = 6
+        right = self.config.width - 6
+        y = self.config.height - 7
+        pygame.draw.line(self.surface, palette.dim, (left, y), (right, y), 2)
+
+        active_right = left + int((right - left) * self.microphone.level)
+        if active_right > left:
+            pygame.draw.line(self.surface, palette.cyan, (left, y), (active_right, y), 2)
+
     def draw(self) -> None:
         palette = self.config.palette
         self.surface.fill(palette.background)
@@ -742,19 +761,23 @@ class App:
         batch.draw(self.surface, self.config.glow, palette.glow)
         self.portals.draw(self.surface, self.projection, self.elapsed)
         self.fx.draw(self.surface, self.elapsed)
+        self.draw_vu_meter()
         self.draw_fps()
         pygame.transform.scale(self.surface, self.window.get_size(), self.window)
         pygame.display.flip()
 
     def run(self) -> None:
-        while self.running:
-            dt = self.clock.tick(self.config.fps) / 1000.0
-            self.elapsed += dt
-            for event in pygame.event.get():
-                self.handle_event(event)
-            self.update()
-            self.draw()
-        pygame.quit()
+        try:
+            while self.running:
+                dt = self.clock.tick(self.config.fps) / 1000.0
+                self.elapsed += dt
+                for event in pygame.event.get():
+                    self.handle_event(event)
+                self.update(dt)
+                self.draw()
+        finally:
+            self.microphone.stop()
+            pygame.quit()
 
 
 def parse_args(argv: list[str]) -> Config:

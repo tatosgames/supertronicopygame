@@ -58,7 +58,7 @@ fi
 
 install_common_packages() {
   sudo apt update
-  sudo apt install -y python3-pygame xinit xserver-xorg xserver-xorg-legacy x11-xserver-utils
+  sudo apt install -y python3-pygame python3-numpy python3-sounddevice xinit xserver-xorg xserver-xorg-legacy x11-xserver-utils
 }
 
 target_spec() {
