@@ -343,7 +343,7 @@ class CityRenderer:
         palette = self.config.palette
         parallax = math.sin(t * 0.10 * self.config.speed) * 0.45
         z = 21.5
-        ground_y = -0.18
+        ground_y = 1.25
         for building in self.buildings:
             x0 = building.x + parallax
             x1 = x0 + building.w
