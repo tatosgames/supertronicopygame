@@ -5,12 +5,59 @@ from dataclasses import dataclass
 import pygame
 
 from config import Config
-from renderers.core import LineBatch, Point, Projection, blend_color, mix_color
+from renderers.core import LineBatch, Point, Projection, blend_color, clamp, mix_color
 
 
 class GridRenderer:
     def __init__(self, config: Config) -> None:
         self.config = config
+        self._rng = random.Random(config.seed + 808)
+        self.turn_current = 0.0
+        self.turn_target = self._rng.choice((-0.8, -0.55, 0.0, 0.55, 0.8))
+        self._turn_elapsed = 0.0
+        self._next_turn_change = config.grid_curve_change_interval * 0.6
+
+    def update(self, dt: float) -> None:
+        dt = max(0.0, dt)
+        self._turn_elapsed += dt
+        if self._turn_elapsed >= self._next_turn_change:
+            self.turn_target = self._rng.choice((-0.8, -0.55, 0.0, 0.55, 0.8))
+            self._next_turn_change += self.config.grid_curve_change_interval * self._rng.uniform(0.75, 1.25)
+        response = min(1.0, dt * self.config.grid_curve_response)
+        self.turn_current += (self.turn_target - self.turn_current) * response
+
+    def _project_curved(self, projection: Projection, x: float, floor_y: float, z: float) -> Point | None:
+        point = projection.project(x, floor_y, z)
+        if point is None:
+            return None
+        depth = clamp(
+            1.0 - (z - self.config.grid_z_near) / (self.config.grid_z_far - self.config.grid_z_near),
+            0.0,
+            1.0,
+        )
+        offset = int(round(self.turn_current * self.config.grid_curve_max_pixels * depth * depth))
+        return point[0] + offset, point[1]
+
+    def _add_curved_depth_line(
+        self,
+        batch: LineBatch,
+        projection: Projection,
+        x_near: float,
+        x_far: float,
+        floor_y: float,
+        color: tuple[int, int, int],
+        glow: bool,
+    ) -> None:
+        previous: Point | None = None
+        segments = max(1, self.config.grid_curve_segments)
+        for index in range(segments + 1):
+            progress = index / segments
+            z = self.config.grid_z_near + (self.config.grid_z_far - self.config.grid_z_near) * progress
+            x = x_near + (x_far - x_near) * progress
+            point = self._project_curved(projection, x, floor_y, z)
+            if previous is not None:
+                batch.add(previous, point, color, glow=glow)
+            previous = point
 
     def draw(self, surface: pygame.Surface, projection: Projection, t: float, batch: LineBatch) -> None:
         palette = self.config.palette
@@ -23,16 +70,20 @@ class GridRenderer:
         while z <= self.config.grid_z_far:
             fade = 1.0 - (z / self.config.grid_z_far) * 0.75
             color = mix_color(palette.green, int(-70 * (1.0 - fade)))
-            batch.add(projection.project(-self.config.grid_extent_x, floor_y, z), projection.project(self.config.grid_extent_x, floor_y, z), color)
+            batch.add(
+                self._project_curved(projection, -self.config.grid_extent_x, floor_y, z),
+                self._project_curved(projection, self.config.grid_extent_x, floor_y, z),
+                color,
+            )
             z += self.config.grid_spacing_z
         x = -self.config.grid_extent_x
         while x <= self.config.grid_extent_x + 0.01:
-            batch.add(projection.project(x, floor_y, self.config.grid_z_near), projection.project(x, floor_y, self.config.grid_z_far), palette.dim, glow=False)
+            self._add_curved_depth_line(batch, projection, x, x, floor_y, palette.dim, glow=False)
             x += self.config.grid_spacing_x
         for rail_x in (-4.0, 4.0):
-            batch.add(projection.project(rail_x, floor_y, self.config.grid_z_near), projection.project(rail_x * 0.35, floor_y, self.config.grid_z_far), palette.green)
+            self._add_curved_depth_line(batch, projection, rail_x, rail_x * 0.35, floor_y, palette.green, glow=True)
         for stripe_x in (-0.35, 0.35):
-            batch.add(projection.project(stripe_x, floor_y, self.config.grid_z_near), projection.project(stripe_x * 0.25, floor_y, self.config.grid_z_far), palette.cyan)
+            self._add_curved_depth_line(batch, projection, stripe_x, stripe_x * 0.25, floor_y, palette.cyan, glow=True)
 
 
 class TerrainRenderer:

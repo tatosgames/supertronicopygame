@@ -17,7 +17,7 @@ class AppTests(unittest.TestCase):
         self.app.close()
 
     def test_documented_toggle_controls(self) -> None:
-        for key, attribute in ((pygame.K_f, "show_fps"), (pygame.K_s, "scanlines"), (pygame.K_g, "glow"), (pygame.K_v, "auto_variation")):
+        for key, attribute in ((pygame.K_f, "show_fps"), (pygame.K_s, "scanlines"), (pygame.K_g, "glow"), (pygame.K_d, "vector_distortion"), (pygame.K_v, "auto_variation")):
             before = getattr(self.app.config, attribute)
             self.app.handle_event(pygame.event.Event(pygame.KEYDOWN, key=key))
             self.assertEqual(getattr(self.app.config, attribute), not before)
@@ -49,3 +49,10 @@ class AppTests(unittest.TestCase):
         self.assertEqual(self.app.surface.get_size(), (480, 320))
         self.app.close()
         self.app.close()
+
+    def test_draws_audio_vector_distortion_headlessly(self) -> None:
+        self.app.config.vector_distortion = True
+        self.app.config.audio_onset = 1.0
+        self.app.elapsed = 1.0
+        self.app.draw()
+        self.assertEqual(self.app.surface.get_size(), (480, 320))

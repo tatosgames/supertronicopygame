@@ -34,6 +34,7 @@ def apply_performance_profile(config: Config) -> None:
         config.star_count = 46
         config.data_column_count = 10
         config.grid_z_far = 32.0
+        config.grid_curve_segments = 3
     elif config.profile == "minimal":
         config.glow = False
         config.scanlines = False
@@ -44,3 +45,4 @@ def apply_performance_profile(config: Config) -> None:
         config.star_count = 22
         config.data_column_count = 5
         config.grid_z_far = 26.0
+        config.grid_curve_segments = 3

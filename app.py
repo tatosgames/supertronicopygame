@@ -6,7 +6,7 @@ from config import Config
 from microphone import Microphone
 from renderers.actors import DroneRenderer, PortalRenderer
 from renderers.background import BackgroundRenderer
-from renderers.core import LineBatch, Projection, blend_palette, smoothstep
+from renderers.core import LineBatch, Projection, VectorDistortion, blend_palette, smoothstep
 from renderers.effects import FXRenderer
 from renderers.landscape import CityRenderer, GridRenderer, SunRenderer, TerrainRenderer
 
@@ -22,10 +22,12 @@ class App:
         self.window = pygame.display.set_mode((config.width * config.scale, config.height * config.scale), flags)
         pygame.mouse.set_visible(False)
         self.surface = pygame.Surface((config.width, config.height)).convert()
+        self.scene_surface = pygame.Surface((config.width, config.height)).convert()
         self.clock = pygame.time.Clock()
         self.font = pygame.font.Font(None, 16)
         self.projection = Projection(config)
         self.batch = LineBatch()
+        self.vector_distortion = VectorDistortion(config)
         self.background = BackgroundRenderer(config)
         self.grid = GridRenderer(config)
         self.terrain = TerrainRenderer(config)
@@ -87,6 +89,8 @@ class App:
                 self.config.scanlines = not self.config.scanlines
             elif event.key == pygame.K_g:
                 self.config.glow = not self.config.glow
+            elif event.key == pygame.K_d:
+                self.config.vector_distortion = not self.config.vector_distortion
             elif event.key == pygame.K_c:
                 self.start_palette_transition(self.config.palette_index + 1)
             elif event.key == pygame.K_v:
@@ -104,6 +108,7 @@ class App:
 
     def update(self, dt: float) -> None:
         self.microphone.update(dt)
+        self.grid.update(dt)
         self.city.update_transition(dt)
         self.terrain.update_transition(dt)
         features = self.microphone.features
@@ -139,18 +144,23 @@ class App:
 
     def draw(self) -> None:
         palette = self.config.palette
-        self.surface.fill(palette.background)
+        scene = self.scene_surface
+        scene.fill(palette.background)
         self.projection.refresh()
         self.batch.clear()
-        self.background.draw(self.surface, self.elapsed)
-        self.sun.draw(self.surface, self.elapsed)
-        self.terrain.draw(self.surface, self.elapsed)
-        self.city.draw(self.surface, self.projection, self.elapsed, self.batch)
-        self.grid.draw(self.surface, self.projection, self.elapsed, self.batch)
-        self.drones.draw(self.surface, self.projection, self.elapsed, self.batch)
-        self.batch.draw(self.surface, self.config.glow, palette.glow, self.config.audio_onset)
-        self.portals.draw(self.surface, self.projection, self.elapsed)
-        self.fx.draw(self.surface, self.elapsed)
+        self.background.draw(scene, self.elapsed)
+        self.sun.draw(scene, self.elapsed)
+        self.terrain.draw(scene, self.elapsed)
+        self.city.draw(scene, self.projection, self.elapsed, self.batch)
+        self.grid.draw(scene, self.projection, self.elapsed, self.batch)
+        self.drones.draw(scene, self.projection, self.elapsed, self.batch)
+        self.batch.draw(scene, self.config.glow, palette.glow, self.config.audio_onset)
+        self.portals.draw(scene, self.projection, self.elapsed)
+        self.fx.draw(scene, self.elapsed)
+        if self.config.vector_distortion and self.config.audio_onset > 0.0:
+            self.vector_distortion.draw(scene, self.surface, palette.background, self.elapsed, self.config.audio_onset)
+        else:
+            self.surface.blit(scene, (0, 0))
         self.draw_vu_meter()
         self.draw_fps()
         pygame.transform.scale(self.surface, self.window.get_size(), self.window)

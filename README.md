@@ -124,6 +124,7 @@ python3 main.py --profile pi --width 480 --height 320 --scale 1 --fullscreen
 - `F`: mostra/nasconde FPS e informazioni di debug;
 - `S`: attiva/disattiva le scanline;
 - `G`: attiva/disattiva il glow simulato;
+- `D`: attiva/disattiva il disturbo vettoriale reattivo al microfono;
 - `C`: cambia palette;
 - `V`: attiva/disattiva la variazione automatica;
 - `SPACE`: rigenera terreno, città e droni;

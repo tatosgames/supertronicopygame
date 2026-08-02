@@ -1,3 +1,5 @@
+import math
+
 import pygame
 
 from config import Config, Palette
@@ -98,3 +100,40 @@ class LineBatch:
                     pygame.draw.line(surface, glow_color, a, b, glow_width)
         for a, b, color, _ in self.lines:
             pygame.draw.line(surface, color, a, b, 1)
+
+
+class VectorDistortion:
+    """Apply a bounded, audio-triggered CRT-style warp in fixed-size bands."""
+
+    def __init__(self, config: Config, band_height: int = 20) -> None:
+        self.config = config
+        self.band_height = band_height
+
+    def offsets(self, t: float, audio_pulse: float) -> list[int]:
+        """Return deterministic horizontal offsets, bounded by the configured limit."""
+        amplitude = int(round(self.config.vector_distortion_max_pixels * clamp(audio_pulse, 0.0, 1.0)))
+        band_count = math.ceil(self.config.height / self.band_height)
+        if amplitude == 0:
+            return [0] * band_count
+
+        return [
+            int(round(amplitude * (
+                math.sin(t * 31.0 + band * 1.71)
+                + 0.42 * math.sin(t * 57.0 + band * 0.63)
+            ) / 1.42))
+            for band in range(band_count)
+        ]
+
+    def draw(
+        self,
+        source: pygame.Surface,
+        target: pygame.Surface,
+        background: tuple[int, int, int],
+        t: float,
+        audio_pulse: float,
+    ) -> None:
+        target.fill(background)
+        for band, offset in enumerate(self.offsets(t, audio_pulse)):
+            y = band * self.band_height
+            height = min(self.band_height, self.config.height - y)
+            target.blit(source, (offset, y), pygame.Rect(0, y, self.config.width, height))
