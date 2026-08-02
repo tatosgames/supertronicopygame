@@ -59,29 +59,6 @@ systemctl status tronico-screen.service
 journalctl -u tronico-screen.service -f
 ```
 
-### Sospendere temporaneamente il servizio
-
-Prima di fare manutenzione, aggiornamenti o prove manuali puoi fermare e
-disabilitare temporaneamente il servizio:
-
-```bash
-sudo bash scripts/service-control.sh pause
-```
-
-Durante la sospensione il programma non viene avviato automaticamente e non
-riparte se viene chiuso. Per ripristinare il servizio e l’avvio automatico al
-boot:
-
-```bash
-sudo bash scripts/service-control.sh resume
-```
-
-Per controllare lo stato:
-
-```bash
-bash scripts/service-control.sh status
-```
-
 Gli argomenti dell’applicazione possono essere passati dopo `--`. Per esempio:
 
 ```bash
