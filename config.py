@@ -101,7 +101,7 @@ class Config:
 
     scanlines: bool = True
     glow: bool = True
-    vector_distortion: bool = False
+    vector_distortion: bool = True
     vector_distortion_max_pixels: int = 10
     flicker: bool = True
     show_fps: bool = False
@@ -122,8 +122,8 @@ class Config:
     # Slower base motion makes bass-driven acceleration easier to perceive.
     grid_scroll_rate: float = 1.9
     grid_curve_max_pixels: float = 42.0
-    grid_curve_change_interval: float = 9.0
     grid_curve_response: float = 0.55
+    grid_curve_return_response: float = 8.0
     grid_curve_segments: int = 5
 
     mountain_count: int = 46

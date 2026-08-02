@@ -12,6 +12,7 @@ class FXRenderer:
         self.config = config
         self.scanline_surface = pygame.Surface((config.width, config.height), pygame.SRCALPHA)
         self.vignette_surface = pygame.Surface((config.width, config.height), pygame.SRCALPHA)
+        self.combined_overlay = pygame.Surface((config.width, config.height), pygame.SRCALPHA)
         self.flicker_surfaces: dict[int, pygame.Surface] = {}
         self.noise_frames: list[list[Point]] = []
         self.rebuild()
@@ -26,6 +27,9 @@ class FXRenderer:
             rect = pygame.Rect(i, i, self.config.width - i * 2, self.config.height - i * 2)
             if rect.width > 0 and rect.height > 0:
                 pygame.draw.rect(self.vignette_surface, (0, 0, 0, alpha), rect, 1)
+        self.combined_overlay = pygame.Surface((self.config.width, self.config.height), pygame.SRCALPHA)
+        self.combined_overlay.blit(self.scanline_surface, (0, 0))
+        self.combined_overlay.blit(self.vignette_surface, (0, 0))
         self.flicker_surfaces = {}
         for shade in range(1, 16):
             flicker = pygame.Surface((self.config.width, self.config.height), pygame.SRCALPHA)
@@ -42,5 +46,6 @@ class FXRenderer:
             for x, y in self.noise_frames[int(t * 14.0) & 15]:
                 surface.set_at((x, y), self.config.palette.text)
         if self.config.scanlines:
-            surface.blit(self.scanline_surface, (0, 0))
-        surface.blit(self.vignette_surface, (0, 0))
+            surface.blit(self.combined_overlay, (0, 0))
+        else:
+            surface.blit(self.vignette_surface, (0, 0))

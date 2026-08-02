@@ -31,13 +31,19 @@ class GridRendererTests(unittest.TestCase):
         self.grid.draw(None, self.projection, 0.0, batch)
         expected_depth_lines = int((self.config.grid_extent_x * 2) / self.config.grid_spacing_x) + 1
         expected_depth_lines += 4
-        self.assertGreaterEqual(len(batch.lines), expected_depth_lines * self.config.grid_curve_segments)
+        polyline_segments = sum(len(points) - 1 for points, _, _ in batch.polylines)
+        self.assertGreaterEqual(polyline_segments, expected_depth_lines * self.config.grid_curve_segments)
 
-    def test_turn_eases_toward_target(self) -> None:
+    def test_curve_only_active_during_transition_and_returns_quickly(self) -> None:
         self.grid.turn_current = 0.0
         self.grid.turn_target = 0.8
-        self.grid._next_turn_change = 999.0
-        self.grid.update(1.0)
+        self.grid.begin_transition()
+        self.grid.turn_target = 0.8
+        self.grid.update(1.0, transition_active=True)
         self.assertGreater(self.grid.turn_current, 0.0)
         self.assertLess(self.grid.turn_current, self.grid.turn_target)
-
+        curved_value = self.grid.turn_current
+        self.grid.update(0.5, transition_active=False)
+        self.assertLess(abs(self.grid.turn_current), abs(curved_value))
+        self.grid.update(1.0, transition_active=False)
+        self.assertAlmostEqual(self.grid.turn_current, 0.0, delta=0.01)

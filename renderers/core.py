@@ -78,13 +78,19 @@ class Projection:
 class LineBatch:
     def __init__(self) -> None:
         self.lines: list[tuple[Point, Point, tuple[int, int, int], bool]] = []
+        self.polylines: list[tuple[list[Point], tuple[int, int, int], bool]] = []
 
     def clear(self) -> None:
         self.lines.clear()
+        self.polylines.clear()
 
     def add(self, a: Point | None, b: Point | None, color: tuple[int, int, int], glow: bool = True) -> None:
         if a is not None and b is not None:
             self.lines.append((a, b, color, glow))
+
+    def add_polyline(self, points: list[Point], color: tuple[int, int, int], glow: bool = True) -> None:
+        if len(points) >= 2:
+            self.polylines.append((points, color, glow))
 
     def draw(
         self,
@@ -98,8 +104,13 @@ class LineBatch:
             for a, b, _, line_glow in self.lines:
                 if line_glow:
                     pygame.draw.line(surface, glow_color, a, b, glow_width)
+            for points, _, line_glow in self.polylines:
+                if line_glow:
+                    pygame.draw.lines(surface, glow_color, False, points, glow_width)
         for a, b, color, _ in self.lines:
             pygame.draw.line(surface, color, a, b, 1)
+        for points, color, _ in self.polylines:
+            pygame.draw.lines(surface, color, False, points, 1)
 
 
 class VectorDistortion:

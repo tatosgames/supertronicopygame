@@ -1,4 +1,5 @@
 import random
+import time
 
 import pygame
 
@@ -51,6 +52,8 @@ class App:
         self.palette_to = config.palette
         self.config.current_palette = config.palette
         self._closed = False
+        self.update_ms = 0.0
+        self.draw_ms = 0.0
 
     def randomize_seed(self) -> None:
         if self.city.transition_buildings is not None or self.terrain.transition_points is not None:
@@ -58,6 +61,7 @@ class App:
         self.config.seed = random.randint(1, 999_999)
         self.city.begin_transition(self.config.seed)
         self.terrain.begin_transition(self.config.seed)
+        self.grid.begin_transition()
 
     def start_palette_transition(self, target_index: int) -> None:
         self.palette_from = self.config.palette
@@ -114,9 +118,10 @@ class App:
 
     def update(self, dt: float) -> None:
         self.microphone.update(dt)
-        self.grid.update(dt)
         self.city.update_transition(dt)
         self.terrain.update_transition(dt)
+        transition_active = self.city.transition_buildings is not None or self.terrain.transition_points is not None
+        self.grid.update(dt, transition_active)
         features = self.microphone.features
         self.config.audio_level = features.level
         self.config.audio_low = features.low
@@ -137,7 +142,7 @@ class App:
         if not self.config.show_fps:
             return
         auto = "AUTO" if self.config.auto_variation else "HOLD"
-        label = f"{self.clock.get_fps():04.1f} FPS  {self.config.profile}  {self.config.palette.name}  {auto}  speed {self.config.speed:.2f}"
+        label = f"{self.clock.get_fps():04.1f} FPS  draw {self.draw_ms:04.1f}ms  update {self.update_ms:04.1f}ms"
         self.surface.blit(self.font.render(label, False, self.config.palette.text), (5, 5))
 
     def draw_vu_meter(self) -> None:
@@ -149,6 +154,7 @@ class App:
             pygame.draw.line(self.surface, palette.cyan, (left, y), (active_right, y), 2)
 
     def draw(self) -> None:
+        draw_started = time.perf_counter() if self.config.show_fps else 0.0
         palette = self.config.palette
         scene = self.scene_surface
         scene.fill(palette.background)
@@ -169,7 +175,12 @@ class App:
             self.surface.blit(scene, (0, 0))
         self.draw_vu_meter()
         self.draw_fps()
-        pygame.transform.scale(self.surface, self.window.get_size(), self.window)
+        if self.surface.get_size() == self.window.get_size():
+            self.window.blit(self.surface, (0, 0))
+        else:
+            pygame.transform.scale(self.surface, self.window.get_size(), self.window)
+        if draw_started:
+            self.draw_ms = (time.perf_counter() - draw_started) * 1000.0
         pygame.display.flip()
 
     def close(self) -> None:
@@ -186,7 +197,10 @@ class App:
                 self.elapsed += dt
                 for event in pygame.event.get():
                     self.handle_event(event)
+                update_started = time.perf_counter() if self.config.show_fps else 0.0
                 self.update(dt)
+                if update_started:
+                    self.update_ms = (time.perf_counter() - update_started) * 1000.0
                 self.draw()
         finally:
             self.close()

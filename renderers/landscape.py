@@ -13,17 +13,22 @@ class GridRenderer:
         self.config = config
         self._rng = random.Random(config.seed + 808)
         self.turn_current = 0.0
-        self.turn_target = self._rng.choice((-0.8, -0.55, 0.0, 0.55, 0.8))
-        self._turn_elapsed = 0.0
-        self._next_turn_change = config.grid_curve_change_interval * 0.6
+        self.turn_target = 0.0
+        self._transition_active = False
 
-    def update(self, dt: float) -> None:
+    def begin_transition(self) -> None:
+        self._transition_active = True
+        self.turn_target = self._rng.choice((-0.8, -0.55, 0.55, 0.8))
+
+    def update(self, dt: float, transition_active: bool = False) -> None:
         dt = max(0.0, dt)
-        self._turn_elapsed += dt
-        if self._turn_elapsed >= self._next_turn_change:
-            self.turn_target = self._rng.choice((-0.8, -0.55, 0.0, 0.55, 0.8))
-            self._next_turn_change += self.config.grid_curve_change_interval * self._rng.uniform(0.75, 1.25)
-        response = min(1.0, dt * self.config.grid_curve_response)
+        if transition_active and not self._transition_active:
+            self.begin_transition()
+        elif not transition_active and self._transition_active:
+            self._transition_active = False
+            self.turn_target = 0.0
+        response_rate = self.config.grid_curve_response if self._transition_active else self.config.grid_curve_return_response
+        response = min(1.0, dt * response_rate)
         self.turn_current += (self.turn_target - self.turn_current) * response
 
     def _project_curved(self, projection: Projection, x: float, floor_y: float, z: float) -> Point | None:
@@ -48,16 +53,16 @@ class GridRenderer:
         color: tuple[int, int, int],
         glow: bool,
     ) -> None:
-        previous: Point | None = None
+        points: list[Point] = []
         segments = max(1, self.config.grid_curve_segments)
         for index in range(segments + 1):
             progress = index / segments
             z = self.config.grid_z_near + (self.config.grid_z_far - self.config.grid_z_near) * progress
             x = x_near + (x_far - x_near) * progress
             point = self._project_curved(projection, x, floor_y, z)
-            if previous is not None:
-                batch.add(previous, point, color, glow=glow)
-            previous = point
+            if point is not None:
+                points.append(point)
+        batch.add_polyline(points, color, glow=glow)
 
     def draw(self, surface: pygame.Surface, projection: Projection, t: float, batch: LineBatch) -> None:
         palette = self.config.palette
@@ -171,21 +176,30 @@ class TerrainRenderer:
 
     def _draw_profile_range(self, surface: pygame.Surface, points: list[tuple[float, float]], start: int, end: int, shift: float, wave_t: float, color: tuple[int, int, int], glow_color: tuple[int, int, int], horizon: int) -> None:
         last: Point | None = None
+        profile_chunks: list[list[Point]] = []
+        current_chunk: list[Point] = []
         for i in range(start, min(end, len(points))):
             x, y = points[i]
             sx = x + shift
             if sx < -12 or sx > self.config.width + 12:
                 last = None
+                if len(current_chunk) >= 2:
+                    profile_chunks.append(current_chunk)
+                current_chunk = []
                 continue
             point = (int(sx), int(y + math.sin(wave_t + sx * 0.03) * 1.3))
+            current_chunk.append(point)
             if last is not None:
                 c = ((last[0] + point[0]) // 2, horizon + 5)
-                pygame.draw.line(surface, glow_color, last, point, 2)
-                pygame.draw.line(surface, color, last, point, 1)
                 pygame.draw.line(surface, color, last, c, 1)
                 if i % 2 == 0:
                     pygame.draw.line(surface, color, point, c, 1)
             last = point
+        if len(current_chunk) >= 2:
+            profile_chunks.append(current_chunk)
+        for chunk in profile_chunks:
+            pygame.draw.lines(surface, glow_color, False, chunk, 2)
+            pygame.draw.lines(surface, color, False, chunk, 1)
 
 
 @dataclass
