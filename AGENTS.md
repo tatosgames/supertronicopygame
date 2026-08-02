@@ -37,6 +37,8 @@ GPIO. The external panel driver is not part of this repository.
   crashes are restarted.
 - `scripts/hdmi.sh` and `scripts/rpi.sh` are convenience wrappers for HDMI and
   GPIO-TFT startup respectively.
+- `scripts/service-control.sh` temporarily pauses or resumes the systemd display
+  service. `pause` uses `disable --now`; `resume` uses `enable --now`.
 
 ## Display behavior
 
