@@ -198,6 +198,7 @@ class Building:
     x: float
     w: float
     h: float
+    profile: int
     roof: int
     bands: int
     columns: int
@@ -223,13 +224,53 @@ class CityRenderer:
     def _make_buildings(self, seed: int) -> list[Building]:
         rng = random.Random(seed + 202)
         buildings: list[Building] = []
-        x = -17.5
-        while x < 17.5 and len(buildings) < self.config.city_count:
-            w = rng.uniform(0.95, 2.35)
-            h = rng.uniform(1.4, 7.4)
-            buildings.append(Building(x, w, h, rng.choice([0, 0, 0, 1, 2]), rng.choice([0, 0, 1, 1, 2]), rng.choice([0, 0, 1, 1, 2]), rng.choice([0, 0, 0, 0, 1, 2]), rng.choice([0, 0, 0, 1, 2])))
-            x += w + rng.uniform(0.75, 1.65)
+        x = self.config.city_span_left
+        while x < self.config.city_span_right and len(buildings) < self.config.city_count:
+            profile = rng.choices((0, 1, 2, 3, 4), weights=(32, 20, 18, 18, 12), k=1)[0]
+            width = self._profile_width(rng, profile)
+            if x + width > self.config.city_span_right:
+                break
+            height = self._profile_height(rng, profile)
+            roof = rng.choice((0, 0, 0, 1, 2))
+            ornament = rng.choice((0, 0, 0, 0, 1, 2))
+            if profile == 3:
+                roof = 1
+            elif profile == 4:
+                roof = 2
+                ornament = 2
+            buildings.append(
+                Building(
+                    x=x,
+                    w=width,
+                    h=height,
+                    profile=profile,
+                    roof=roof,
+                    bands=rng.choice((0, 0, 1, 1, 2)),
+                    columns=rng.choice((0, 0, 1, 1, 2)),
+                    ornament=ornament,
+                    color_mode=rng.choice((0, 0, 0, 1, 2)),
+                )
+            )
+            x += width + rng.uniform(self.config.city_min_gap, self.config.city_max_gap)
         return buildings
+
+    def _profile_width(self, rng: random.Random, profile: int) -> float:
+        lo = self.config.city_min_width
+        hi = self.config.city_max_width
+        if profile == 1:  # slender tower
+            hi = min(hi, max(lo, 1.25))
+        elif profile == 2:  # broad block
+            lo = max(lo, min(hi, 1.55))
+        return rng.uniform(lo, hi)
+
+    def _profile_height(self, rng: random.Random, profile: int) -> float:
+        lo = self.config.city_min_height
+        hi = self.config.city_max_height
+        if profile == 2:  # broad block
+            hi = min(hi, max(lo, 5.3))
+        elif profile in (1, 4):  # towers and antenna landmarks
+            lo = max(lo, min(hi, 4.2))
+        return rng.uniform(lo, hi)
 
     def begin_transition(self, seed: int) -> None:
         if self.transition_buildings is not None:

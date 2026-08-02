@@ -130,6 +130,14 @@ class Config:
 
     mountain_count: int = 46
     city_count: int = 24
+    city_min_width: float = 0.75
+    city_max_width: float = 2.70
+    city_min_height: float = 1.20
+    city_max_height: float = 8.50
+    city_min_gap: float = 0.35
+    city_max_gap: float = 1.80
+    city_span_left: float = -17.5
+    city_span_right: float = 17.5
     drone_count: int = 7
     star_count: int = 70
     data_column_count: int = 18
